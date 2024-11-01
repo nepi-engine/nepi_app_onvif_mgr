@@ -58,6 +58,7 @@ RUI_DICT = dict(
 
 
 
+DRIVERS_PARAMS_PATH = "/opt/nepi/ros/share/nepi_drivers/params/"
 DRIVERS_PATH = "/opt/nepi/ros/lib/nepi_drivers/"
 
 class ONVIFMgr:
@@ -105,7 +106,7 @@ class ONVIFMgr:
     self.configured_onvifs = nepi_ros.get_param(self,'~onvif_devices', {})
     nepi_msg.publishMsgInfo(self,"Starting device dict from param server: " + str(self.configured_onvifs) )
     # Get drv drivers database
-    self.drvs_dict = nepi_drv.getDriversDict(DRIVERS_PATH)
+    self.drvs_dict = nepi_drv.getDriversDict(DRIVERS_PARAMS_PATH)
     self.drivers_files = nepi_drv.getDriverFilesList(DRIVERS_PATH)
     # Get active drivers list from nepi_mgr_drivers
     NEPI_DRIVERS_STATUS_TOPIC = self.base_namespace + 'drivers_mgr/status'
@@ -166,22 +167,25 @@ class ONVIFMgr:
   def driversStatusCb(self,msg):
     # First check if drv driver database needs updating
     drvs_dict = self.drvs_dict
-    drivers_files = nepi_drv.getDriverFilesList(DRIVERS_PATH)
+    drivers_files = nepi_drv.getDriverFilesList(DRIVERS_PARAMS_PATH)
     need_update = self.drivers_files != drivers_files
     if need_update:
       nepi_msg.publishMsgInfo(self,"Need to Update Drv Database")
-      drvs_dict = nepi_drv.updateDriversDict(DRIVERS_PATH,drvs_dict)
+      drvs_dict = nepi_drv.updateDriversDict(DRIVERS_PARAMS_PATH,drvs_dict)
+    #nepi_msg.publishMsgWarn(self,"Drivers Dict Keys: " + str(drvs_dict.keys()))
     nepi_ros.set_param(self,"~drvs_dict",drvs_dict)
     #ln = sys._getframe().f_lineno ; self.printND('Info',ln)
     self.drivers_files = drivers_files
     # Next update available drivers base on active drivers
     active_drivers_list = msg.drivers_active_list
+    #nepi_msg.publishMsgWarn(self,"Got Active Drivers list: " + str(active_drivers_list))
     for drv_name in self.drvs_dict.keys():
       active = False
       if drv_name in active_drivers_list:
         active = True
       self.drvs_dict[drv_name]['active'] = active
     active_drvs_dict = nepi_drv.getDriversByActive(self.drvs_dict)
+    #nepi_msg.publishMsgWarn(self,"Active Drivers Dict Keys: " + str(active_drvs_dict.keys()))
     idx_drivers_dict = dict()
     ptx_drivers_dict = dict()
     for drv_name in active_drvs_dict.keys():
@@ -195,8 +199,8 @@ class ONVIFMgr:
     self.idx_drivers_dict = idx_drivers_dict
     self.ptx_drivers_dict = ptx_drivers_dict
     self.active_drivers_list = active_drivers_list
-    #nepi_msg.publishMsgWarn(self,str(active_drivers_list))
-    #nepi_msg.publishMsgWarn(self,str(self.active_drivers_list))
+    #nepi_msg.publishMsgWarn(self,"IDX Drivers Dict: " + str(idx_drivers_dict.keys()))
+    #nepi_msg.publishMsgWarn(self,"PTX Drivers Dict: " + str(ptx_drivers_dict.keys()))
 
 
 
@@ -385,7 +389,7 @@ class ONVIFMgr:
     return resp
   
   def runDiscovery(self, _):
-    #nepi_msg.publishMsgInfo(self,'Debug: running discovery')
+    #nepi_msg.publishMsgWarn(self,'Debug: running discovery')
 
     # Some devices only respond once to discovery
     clear_disc = nepi_ros.get_param(self,"~clear_discovery",self.init_clear_disc)
@@ -402,7 +406,7 @@ class ONVIFMgr:
       #nepi_msg.publishMsgInfo(self,'Detected endpoint' + str(endpoint_ref))
       endpoint_ref_tokens = endpoint_ref.split(':')
       if len(endpoint_ref_tokens) < 3:
-        nepi_msg.publishMsgWarn(self,'Detected ill-formed endpoint reference ' + str(endpoint_ref) + ' skipping')
+        #nepi_msg.publishMsgWarn(self,'Detected ill-formed endpoint reference ' + str(endpoint_ref) + ' skipping')
         continue # Ill-formed
       uuid = endpoint_ref_tokens[2]
       # Some devices randomize the first part of their UUID on each reboot, so truncate that off
@@ -482,7 +486,7 @@ class ONVIFMgr:
       
 
       if uuid not in detected_uuids or lost_connection:
-        nepi_msg.publishMsgWarn(self,'detected uuids: ' + str(detected_uuids)) 
+        #nepi_msg.publishMsgWarn(self,'detected uuids: ' + str(detected_uuids)) 
         self.stopAndPurgeNodes(uuid)
         lost_onvifs.append(uuid)
         continue
@@ -507,7 +511,7 @@ class ONVIFMgr:
         nepi_msg.publishMsgInfo(self,"IDX node needs start " + str(needs_idx_start) )
       # Check for restarts
       elif (detected_onvif['idx_node_name'] is not None) and (self.nodeIsRunning(detected_onvif['idx_node_name']) is False):
-        nepi_msg.publishMsgWarn(self,'IDX node for ' + str(uuid) + ' udrvpectedly not running... will force restart')
+        nepi_msg.publishMsgWarn(self,'IDX node for ' + str(uuid) + ' Not running... will force restart')
         needs_restart = True
       '''
       nepi_msg.publishMsgWarn(self,"*******************************************")
