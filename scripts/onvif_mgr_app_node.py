@@ -614,11 +614,11 @@ class ONVIFMgr:
     device_name = config['node_base_name'] + '_' + identifier
     nepi_msg.publishMsgInfo(self,device_name)
     self.device_name_dict[uuid] = device_name
+    ros_node_name = config['node_base_name'] + '_camera_' + identifier
     if start_idx is True:
       driver_name = self.configured_onvifs[uuid]['idx_driver']
       if driver_name in self.drvs_dict.keys():
         file_name = self.drvs_dict[driver_name]['NODE_DICT']['file_name']
-        ros_node_name = config['node_base_name'] + '_camera_' + identifier
         fully_qualified_node_name = self.base_namespace + ros_node_name
         self.checkLoadConfigFile(node_namespace=fully_qualified_node_name)
         drv_dict = self.configured_onvifs[uuid]['idx_drv_dict']
