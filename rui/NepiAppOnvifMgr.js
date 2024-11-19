@@ -301,13 +301,7 @@ class OnvifMgr extends Component {
                     style={{width: '100%'}} 
                   />
                 </Label>
-                <Label title={"Manufacturer"}>
-                  <Input 
-                    disabled 
-                    value={selectedDeviceStatus? selectedDeviceStatus.manufacturer : ''} 
-                    style={{width: '100%'}} 
-                  />
-                </Label>
+
                 <Label title={"Hardware ID"}>
                   <Input 
                     disabled 
@@ -316,15 +310,15 @@ class OnvifMgr extends Component {
                   />
                 </Label>
 
-                <Label title={"Connected"}>
+                <Label title={"Device Connected"}>
                   <BooleanIndicator value={selectedDeviceStatus? selectedDeviceStatus.connectable : ''} />
                 </Label>
 
-                <Label title={"Camera Running"}>
+                <Label title={"Camera Connected"}>
                   <BooleanIndicator value={selectedDeviceStatus? selectedDeviceStatus.idx_node_running : ''} />
                 </Label>
 
-                <Label title={"PanTilt Running"}>
+                <Label title={"PanTilt Connected"}>
                   <BooleanIndicator value={selectedDeviceStatus? selectedDeviceStatus.ptx_node_running : ''} />
                 </Label>
 
@@ -337,13 +331,7 @@ class OnvifMgr extends Component {
                     style={{width: '100%'}} 
                   />
                 </Label>
-                <Label title={"Model"}>
-                  <Input 
-                    disabled 
-                    value={selectedDeviceStatus? selectedDeviceStatus.model : ''} 
-                    style={{width: '100%'}} 
-                  />
-                </Label>
+
                 <Label title={"Firmware"}>
                   <Input 
                     disabled 
