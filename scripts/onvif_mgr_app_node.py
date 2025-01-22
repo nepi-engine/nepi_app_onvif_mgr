@@ -66,7 +66,7 @@ RUI_DICT = dict(
 
 
 DRIVERS_FOLDER = '/opt/nepi/ros/lib/nepi_drivers'
-DRIVERS_PARAM_FOLDER = '/opt/nepi/ros/share/nepi_drivers'
+DRIVERS_PARAM_FOLDER = '/opt/nepi/ros/share/nepi_drivers/params'
 
 class ONVIFMgr:
 
@@ -74,7 +74,7 @@ class ONVIFMgr:
   WSDL_FOLDER = os.path.join(DEFAULT_NEPI_CONFIG_PATH, "onvif/wsdl/")
 
  
-  DEFAULT_DISCOVERY_INTERVAL_S = 10.0
+  DEFAULT_DISCOVERY_INTERVAL_S = 5
   
   ONVIF_SCOPE_NVT_ID = 'Network_Video_Transmitter'
   ONVIF_SCOPE_NVT_ALT_ID = 'NetworkVideoTransmitter' # ONVIF spec. says this name is legal for NVT, too
@@ -124,11 +124,11 @@ class ONVIFMgr:
     self.drivers_folder = DRIVERS_FOLDER
     self.driver_param_folder = DRIVERS_PARAM_FOLDER
 
-    #nepi_msg.publishMsgInfo(self,"Driver folder set to " + self.driver_param_folder)
-    self.drivers_files = nepi_drv.getDriverFilesList(self.driver_param_folder)
+    #nepi_msg.publishMsgInfo(self,"Driver folder set to " + self.drivers_folder)
+    self.drivers_files = nepi_drv.getDriverFilesList(self.drivers_folder)
     #nepi_msg.publishMsgInfo(self,"Driver folder files " + str(self.drivers_files))
-    nepi_msg.publishMsgInfo(self,"Driver folder set to " + self.drivers_install_folder)
-    self.drivers_install_files = nepi_drv.getDriverPackagesList(self.drivers_install_folder)
+    nepi_msg.publishMsgInfo(self,"Driver folder set to " + self.drivers_folder)
+    self.drivers_install_files = nepi_drv.getDriverPackagesList(self.drivers_folder)
     nepi_msg.publishMsgInfo(self,"Driver install packages folder files " + str(self.drivers_install_files))  
     
     
@@ -147,7 +147,7 @@ class ONVIFMgr:
     nepi_msg.publishMsgInfo(self,"Starting device dict from param server: " + str(self.configured_onvifs) )
     # Get drv drivers database
     self.drvs_dict = nepi_drv.getDriversDict(self.driver_param_folder)
-    self.drivers_files = nepi_drv.getDriverFilesList(self.driver_folder)
+    self.drivers_files = nepi_drv.getDriverFilesList(self.drivers_folder)
     # Get active drivers list from nepi_mgr_drivers
     NEPI_DRIVERS_STATUS_TOPIC = self.base_namespace + 'drivers_mgr/status'
     nepi_msg.publishMsgInfo(self,'Waiting for driver_mgr status message')
@@ -184,8 +184,7 @@ class ONVIFMgr:
     # Must handle our own store params rather than offloading to SaveCfgIF per WARNING above
     self.store_params_publisher = rospy.Publisher('store_params', String, queue_size=1)
 
-    dummy = None
-    self.runDiscovery(dummy) # Run discovery immediately. It will re-run itself via a timer after this first one
+    nepi_ros.timer(nepi_ros.duration(self.discovery_interval_s), self.runDiscovery, oneshot=True)
     #########################################################
     ## Initiation Complete
     nepi_msg.publishMsgInfo(self,"Initialization Complete")
@@ -378,7 +377,7 @@ class ONVIFMgr:
         if device['ptx_subproc'] is not None and device['ptx_node_name'] is not None:
           ptx_running = self.nodeIsRunning(device['ptx_node_name'])
         resp_status_for_device.ptx_node_running = ptx_running 
-      
+        resp.device_statuses.append(resp_status_for_device)
       # Known configurations
       for uuid in self.configured_onvifs:
         resp_cfg_for_device = OnvifDeviceCfg()    
@@ -434,7 +433,7 @@ class ONVIFMgr:
     resp.ptx_drivers =  ptx_drivers_ordered
     return resp
   
-  def runDiscovery(self, _):
+  def runDiscovery(self, timer):
     #nepi_msg.publishMsgWarn(self,'Debug: running discovery')
 
     # Some devices only respond once to discovery
@@ -523,6 +522,7 @@ class ONVIFMgr:
             nepi_msg.publishMsgInfo(self,'Connected to device '  + str(uuid) + ' at ' + hostname + ':' + str(port) + ' via configured credentials')
 
     lost_onvifs = []
+    extra_start_delay = 0
     for uuid in self.detected_onvifs:
       detected_onvif = self.detected_onvifs[uuid]
       # Now look for services we've previously detected but are now lost
@@ -532,7 +532,7 @@ class ONVIFMgr:
       
 
       if uuid not in detected_uuids or lost_connection:
-        #nepi_msg.publishMsgWarn(self,'detected uuids: ' + str(detected_uuids)) 
+        nepi_msg.publishMsgWarn(self,'detected uuids: ' + str(detected_uuids)) 
         self.stopAndPurgeNodes(uuid)
         lost_onvifs.append(uuid)
         continue
@@ -593,17 +593,16 @@ class ONVIFMgr:
         self.startNodesForDevice(uuid=uuid, start_idx = needs_idx_start, start_ptx = needs_ptx_start)
       if needs_restart is True:
         self.stopAndPurgeNodes(uuid)
-        
+      extra_start_delay = 5 * int(needs_start) + 5 * int(needs_restart) + 10 * int(needs_restart)
     # Finally, purge lost device from our set... can't do it in the detection loop above because it would modify the object 
     # that is being iterated over; throws exception.
     for uuid in lost_onvifs:
       self.detected_onvifs.pop(uuid)
-
-
+    
+    #nepi_msg.publishMsgWarn(self,'Detected Onvif List ' + str(self.detected_onvifs))
     # And now that we are finished, start a timer for the drvt runDiscovery()
-    extra_start_delay = 5 * int(needs_idx_start or needs_ptx_start)
-    nepi_ros.sleep(self.discovery_interval_s + extra_start_delay,100)
-    nepi_ros.timer(nepi_ros.duration(1), self.runDiscovery, oneshot=True)
+    delay = self.discovery_interval_s + extra_start_delay
+    nepi_ros.timer(nepi_ros.duration(delay), self.runDiscovery, oneshot=True)
 
   def attemptONVIFConnection(self, uuid):
     if uuid not in self.detected_onvifs:
@@ -753,8 +752,8 @@ class ONVIFMgr:
     for node in node_list:
       if node.find(node_name) != -1:
         running = True
-    if running == False:
-      nepi_msg.publishMsgWarn(self,"Failed to find node_name: " + str(node_name) ) #+ " in node list: " + str(node_list))
+    #if running == False:
+      #nepi_msg.publishMsgWarn(self,"Failed to find node_name: " + str(node_name) ) #+ " in node list: " + str(node_list))
     return running
   
   def checkLoadConfigFile(self, node_namespace):
@@ -786,7 +785,7 @@ class ONVIFMgr:
     nepi_ros.set_param(self,'~onvif_devices', self.configured_onvifs)
   
   def updateFromParamServer(self):
-    self.discovery_interval_s = nepi_ros.get_param(self,'~discovery_interval_s', self.discovery_interval_s)
+    self.discovery_interval_s = nepi_ros.get_param(self,'~discovery_interval_s', DEFAULT_DISCOVERY_INTERVAL_S)
     self.autosave_cfg_changes = nepi_ros.get_param(self,'~autosave_cfg_changes', self.autosave_cfg_changes)
     self.configured_onvifs = nepi_ros.get_param(self,'~onvif_devices', self.configured_onvifs)
 
