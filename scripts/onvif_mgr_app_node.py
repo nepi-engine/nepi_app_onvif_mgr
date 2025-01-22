@@ -31,11 +31,11 @@ import requests
 from xml.etree import ElementTree as ET
 
 # DON'T USE SaveCfgIF IN THIS CLASS -- SEE WARNING BELOW
-#from nepi_edge_sdk_base.save_cfg_if import SaveCfgIF
+#from nepi_sdk.save_cfg_if import SaveCfgIF
 
-from nepi_edge_sdk_base import nepi_ros
-from nepi_edge_sdk_base import nepi_msg
-from nepi_edge_sdk_base import nepi_drv
+from nepi_sdk import nepi_ros
+from nepi_sdk import nepi_msg
+from nepi_sdk import nepi_drv
 
 from std_msgs.msg import String, Bool
 from std_srvs.srv import Empty, EmptyResponse
@@ -210,7 +210,7 @@ class ONVIFMgr:
     need_update = self.drivers_files != drivers_files
     if need_update:
       nepi_msg.publishMsgInfo(self,"Need to Update Drv Database")
-      drvs_dict = nepi_drv.updateDriversDict(self.drivers_param_folder,drvs_dict)
+      drvs_dict = nepi_drv.refreshDriversDict(self.drivers_param_folder,drvs_dict)
     #nepi_msg.publishMsgWarn(self,"Drivers Dict Keys: " + str(drvs_dict.keys()))
     nepi_ros.set_param(self,"~drvs_dict",drvs_dict)
     #ln = sys._getframe().f_lineno ; self.printND('Info',ln)
