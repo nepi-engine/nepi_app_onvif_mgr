@@ -8,6 +8,7 @@
  */
 import React, { Component } from 'react';
 import { observer, inject } from "mobx-react"
+
 import Toggle from "react-toggle"
 import Section from "./Section"
 import { Columns, Column } from "./Columns"
@@ -24,6 +25,11 @@ import Styles from "./Styles"
 @inject("ros")
 @observer
 class OnvifMgr extends Component {
+  onvifDeviceStatuses = null
+  onvifDeviceConfigs = null
+  onvifIDXDeviceDrivers = []
+  onvifPTXDeviceDrivers = []
+
   constructor(props) {
     super(props);
 
@@ -40,7 +46,9 @@ class OnvifMgr extends Component {
       selectedDeviceConfigIDXEnabled: true,
       selectedDeviceConfigPTXEnabled: false,
       selectedDeviceConfigIDXDriver: '',
-      selectedDeviceConfigPTXDriver: ''
+      selectedDeviceConfigPTXDriver: '',
+
+      needs_update: false
     };
 
     this.handleUUIDSelection = this.handleUUIDSelection.bind(this)
@@ -52,13 +60,110 @@ class OnvifMgr extends Component {
     this.onPTXDriverSelected = this.onPTXDriverSelected.bind(this)
     this.createIDXDriverOptions = this.createIDXDriverOptions.bind(this)
     this.createPTXDriverOptions = this.createPTXDriverOptions.bind(this)
+
+
+    this.callOnvifDeviceListQueryService = this.callOnvifDeviceListQueryService.bind(this)
+    this.callOnvifDeviceDriverListQueryService = this.callOnvifDeviceDriverListQueryService.bind(this)
+    this.callDriversListQuery = this.callDriversListQuery.bind(this)
+    this.onOnvifDeviceCfgUpdate = this.onOnvifDeviceCfgUpdate.bind(this)
+    this.onOnvifDeviceCfgDelete = this.onOnvifDeviceCfgDelete.bind(this)
+
+    // onvif mgr services
+    this.callOnvifDeviceListQueryService(true) // Start it polling
+    this.callOnvifDeviceDriverListQueryService(true) // Start it polling
   }
 
+
+  componentDidMount(){
+    this.setState({needs_update: true})
+  }
+
+  async callOnvifDeviceListQueryService(poll = true) {
+    const _pollOnce = async () => {
+      const resp = await this.props.ros.callService({
+        name: "app_onvif_mgr/device_list_query",
+        messageType: "nepi_ros_interfaces/OnvifDeviceListQuery",
+      })
+
+      this.onvifDeviceStatuses = resp['device_statuses']
+      this.onvifDeviceConfigs = resp['device_cfgs']
+
+      this.setState({needs_update: false})
+    
+      if (this.connectedToROS && poll) {
+        setTimeout(_pollOnce, 5000)
+      }
+    }
+
+    _pollOnce()
+  }
+
+  async callOnvifDeviceDriverListQueryService(poll = true) {
+    const _pollOnce = async () => {
+      const resp = await this.props.ros.callService({
+        name: "app_onvif_mgr/device_driver_list_query",
+        messageType: "nepi_ros_interfaces/OnvifDeviceDriverListQuery"
+      })
+
+      this.onvifIDXDeviceDrivers = resp['idx_drivers']
+      this.onvifPTXDeviceDrivers = resp['ptx_drivers']
+
+      this.setState({needs_update: false})
+    }
+
+    if (this.connectedToROS && poll) {
+      setTimeout(_pollOnce, 10000) // Slow because it doesn't really change
+    }
+    _pollOnce()
+  }
+
+
+
+  async callDriversListQuery(poll = true) {
+    const _pollOnce = async () => {
+      const resp = await this.props.ros.callService({
+        name: "app_onvif_mgr/drivers_list_query",
+        messageType: "nepi_ros_interfaces/OnvifDeviceListQuery",
+      })
+
+      this.DriversListQuery = resp['drivers_list_query']
+      this.onvifDeviceConfigs = resp['device_cfgs']
+
+      this.setState({needs_update: false})
+    
+      if (this.connectedToROS && poll) {
+        setTimeout(_pollOnce, 5000)
+      }
+    }
+
+    _pollOnce()
+  }
+
+
+
+   async onOnvifDeviceCfgUpdate(updatedDeviceCfg) {
+    await this.props.ros.callService({
+      name: "app_onvif_mgr/set_device_cfg",
+      messageType: "nepi_ros_interfaces/OnvifDeviceCfgUpdate",
+      args: {cfg : updatedDeviceCfg}
+    })
+  }
+
+
+  async onOnvifDeviceCfgDelete(uuid) {
+    await this.callService({
+      name: "app_onvif_mgr/delete_device_cfg",
+      messageType: "nepi_ros_interfaces/OnvifDeviceCfgDelete",
+      args: {device_uuid : uuid}
+    })
+  }
+
+
   handleUUIDSelection(item) {
-    const { onvifDeviceConfigs, onvifIDXDeviceDrivers, onvifPTXDeviceDrivers } = this.props.ros;
+    //const { onvifDeviceConfigs, onvifIDXDeviceDrivers, onvifPTXDeviceDrivers } = this.props.ros;
     let selectedConfig = null
-    for (let i = 0; i < onvifDeviceConfigs.length; i++) {
-      const config = onvifDeviceConfigs[i]
+    for (let i = 0; i < this.onvifDeviceConfigs.length; i++) {
+      const config = this.onvifDeviceConfigs[i]
       const devname = config.device_name
       if (devname === item) {
         selectedConfig = config
@@ -66,8 +171,8 @@ class OnvifMgr extends Component {
       }
     }
 
-    const defaultIDXDeviceDriver = (onvifIDXDeviceDrivers.length > 0)? onvifIDXDeviceDrivers[0] : ''
-    const defaultPTXDeviceDriver = (onvifPTXDeviceDrivers.length > 0)? onvifPTXDeviceDrivers[0] : ''
+    const defaultIDXDeviceDriver = (this.onvifIDXDeviceDrivers.length > 0)? this.onvifIDXDeviceDrivers[0] : ''
+    const defaultPTXDeviceDriver = (this.onvifPTXDeviceDrivers.length > 0)? this.onvifPTXDeviceDrivers[0] : ''
 
     this.setState({ 
       selectedDeviceUUID: selectedConfig? selectedConfig.uuid : item,
@@ -86,7 +191,7 @@ class OnvifMgr extends Component {
   };
 
   handleNewConfigClick() {
-    const { onvifIDXDeviceDrivers, onvifPTXDeviceDrivers } = this.props.ros;
+    //const { onvifIDXDeviceDrivers, onvifPTXDeviceDrivers } = this.props.ros;
 
     this.setState({
       selectedDeviceUUID: null,
@@ -98,8 +203,8 @@ class OnvifMgr extends Component {
       selectedDeviceConfigBasename: 'new_onvif_device',
       selectedDeviceIDXEnabled: false,
       selectedDevicePTXEnabled: false,
-      selectedDeviceConfigIDXDriver: onvifIDXDeviceDrivers[0],
-      selectedDeviceConfigPTXDriver: onvifPTXDeviceDrivers[0]
+      selectedDeviceConfigIDXDriver: this.onvifIDXDeviceDrivers[0],
+      selectedDeviceConfigPTXDriver: this.onvifPTXDeviceDrivers[0]
     })
   }
 
@@ -178,39 +283,39 @@ class OnvifMgr extends Component {
   }
 
   createIDXDriverOptions() {
-    const { onvifIDXDeviceDrivers } = this.props.ros;
+    //const { onvifIDXDeviceDrivers } = this.props.ros;
     var items = []
-    for (var i = 0; i < onvifIDXDeviceDrivers.length; i++) {
-      if (onvifIDXDeviceDrivers[i].indexOf("Generic") !== -1){
-        items.push(<Option value={onvifIDXDeviceDrivers[i]}>{onvifIDXDeviceDrivers[i]}</Option>)
+    for (var i = 0; i < this.onvifIDXDeviceDrivers.length; i++) {
+      if (this.onvifIDXDeviceDrivers[i].indexOf("Generic") !== -1){
+        items.push(<Option value={this.onvifIDXDeviceDrivers[i]}>{this.onvifIDXDeviceDrivers[i]}</Option>)
       }
     }
-    for (var i2 = 0; i2 < onvifIDXDeviceDrivers.length; i2++) {
-      if (onvifIDXDeviceDrivers[i2].indexOf("Generic") === -1){
-        items.push(<Option value={onvifIDXDeviceDrivers[i2]}>{onvifIDXDeviceDrivers[i2]}</Option>)
+    for (var i2 = 0; i2 < this.onvifIDXDeviceDrivers.length; i2++) {
+      if (this.onvifIDXDeviceDrivers[i2].indexOf("Generic") === -1){
+        items.push(<Option value={this.onvifIDXDeviceDrivers[i2]}>{this.onvifIDXDeviceDrivers[i2]}</Option>)
       }
     }
     return items
   }
 
   createPTXDriverOptions() {
-    const { onvifPTXDeviceDrivers } = this.props.ros;
+    //const { onvifPTXDeviceDrivers } = this.props.ros;
     var items = []
-    for (var i = 0; i < onvifPTXDeviceDrivers.length; i++) {
-      if (onvifPTXDeviceDrivers[i].indexOf("Generic") !== -1){
-        items.push(<Option value={onvifPTXDeviceDrivers[i]}>{onvifPTXDeviceDrivers[i]}</Option>)
+    for (var i = 0; i < this.onvifPTXDeviceDrivers.length; i++) {
+      if (this.onvifPTXDeviceDrivers[i].indexOf("Generic") !== -1){
+        items.push(<Option value={this.onvifPTXDeviceDrivers[i]}>{this.onvifPTXDeviceDrivers[i]}</Option>)
       }
     }
-    for (var i2 = 0; i2 < onvifPTXDeviceDrivers.length; i2++) {
-      if (onvifPTXDeviceDrivers[i2].indexOf("Generic") === -1){
-        items.push(<Option value={onvifPTXDeviceDrivers[i2]}>{onvifPTXDeviceDrivers[i2]}</Option>)
+    for (var i2 = 0; i2 < this.onvifPTXDeviceDrivers.length; i2++) {
+      if (this.onvifPTXDeviceDrivers[i2].indexOf("Generic") === -1){
+        items.push(<Option value={this.onvifPTXDeviceDrivers[i2]}>{this.onvifPTXDeviceDrivers[i2]}</Option>)
       }
     }
     return items
   }
 
   render() {
-    const { onvifDeviceStatuses, onvifDeviceConfigs } = this.props.ros;
+    //const { onvifDeviceStatuses, onvifDeviceConfigs } = this.props.ros;
     const { selectedDeviceUUID, 
             selectedDeviceConfigDevName,
             selectedDeviceConfigModified,
@@ -226,9 +331,9 @@ class OnvifMgr extends Component {
         
     let detectedDeviceUUIDsForListBox = []
     let detectedDeviceDevNamesForListBox = []
-    if (onvifDeviceStatuses !== null) {
-      for (let i = 0; i < onvifDeviceStatuses.length; i++) {
-        const status = onvifDeviceStatuses[i]
+    if (this.onvifDeviceStatuses !== null) {
+      for (let i = 0; i < this.onvifDeviceStatuses.length; i++) {
+        const status = this.onvifDeviceStatuses[i]
         const uuid = status.uuid
         const devname = status.device_name
         detectedDeviceUUIDsForListBox.push(uuid)
@@ -241,9 +346,9 @@ class OnvifMgr extends Component {
 
     let configuredDevicesUUIDsForListBox = []
     let configuredDevicesDevNamesForListBox = []
-    if (onvifDeviceConfigs !== null) {
-      for (let i = 0; i < onvifDeviceConfigs.length; i++) {
-        const config = onvifDeviceConfigs[i]
+    if (this.onvifDeviceConfigs !== null) {
+      for (let i = 0; i < this.onvifDeviceConfigs.length; i++) {
+        const config = this.onvifDeviceConfigs[i]
         const uuid = config.uuid
         const devname = config.device_name
         configuredDevicesUUIDsForListBox.push(uuid)
