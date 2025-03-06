@@ -55,6 +55,7 @@ std_msgs
 
 ## Generate messages in the 'msg' folder
 add_message_files( FILES
+	OnvifStatus.msg
 	OnvifDeviceCfg.msg
 	OnvifDeviceStatus.msg
 )
@@ -63,7 +64,7 @@ add_message_files( FILES
 add_service_files(FILES
 	OnvifDeviceCfgDelete.srv
 	OnvifDeviceCfgUpdate.srv
-	OnvifDeviceDriverListQuery.srv
+	OnvifDriverListQuery.srv
 	OnvifDeviceListQuery.srv
 )
 

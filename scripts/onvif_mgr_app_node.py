@@ -40,11 +40,12 @@ from nepi_sdk import nepi_drv
 from std_msgs.msg import String, Bool
 from std_srvs.srv import Empty, EmptyResponse
 from nepi_ros_interfaces.msg import DriversStatus
-from nepi_app_onvif_mgr.msg import OnvifDeviceCfg, OnvifDeviceStatus
+from nepi_ros_interfaces.srv import SystemStorageFolderQuery
+from nepi_app_onvif_mgr.msg import OnvifStatus, OnvifDeviceCfg, OnvifDeviceStatus
 from nepi_app_onvif_mgr.srv import OnvifDeviceListQuery, OnvifDeviceListQueryResponse
 from nepi_app_onvif_mgr.srv import OnvifDeviceCfgUpdate, OnvifDeviceCfgUpdateResponse
 from nepi_app_onvif_mgr.srv import OnvifDeviceCfgDelete, OnvifDeviceCfgDeleteResponse
-from nepi_app_onvif_mgr.srv import OnvifDeviceDriverListQuery, OnvifDeviceDriverListQueryResponse
+from nepi_app_onvif_mgr.srv import OnvifDriverListQuery, OnvifDriverListQueryResponse
 
 MGR_NAME = 'ONVIF Manager' # Use in display menus
 FILE_TYPE = 'MANAGER'
@@ -66,7 +67,7 @@ RUI_DICT = dict(
 
 
 DRIVERS_FOLDER = '/opt/nepi/ros/lib/nepi_drivers'
-DRIVERS_PARAM_FOLDER = '/opt/nepi/ros/share/nepi_drivers/params'
+
 
 class ONVIFMgr:
 
@@ -99,7 +100,7 @@ class ONVIFMgr:
     nepi_msg.createMsgPublishers(self)
     nepi_msg.publishMsgInfo(self,"Starting Initialization Processes")
     ##############################
-    '''
+
     # Get driver folder paths
     get_folder_name_service = self.base_namespace + 'system_storage_folder_query'
     nepi_msg.publishMsgInfo(self,"Waiting for system folder query service " + get_folder_name_service)
@@ -108,7 +109,10 @@ class ONVIFMgr:
     try:
         nepi_msg.publishMsgInfo(self,"Getting drivers folder query service " + get_folder_name_service)
         folder_query_service = rospy.ServiceProxy(get_folder_name_service, SystemStorageFolderQuery)
-        response = folder_query_service('nepi_drivers')
+    except Exception as e:
+      nepi_msg.publishMsgWarn(self,"Failed to obtain system folder service " + str(e))
+    try:
+        response = folder_query_service('drivers')
         nepi_msg.publishMsgInfo(self,"Got storage folder path" + response.folder_path)
         time.sleep(1)
         self.drivers_folder = response.folder_path
@@ -118,13 +122,10 @@ class ONVIFMgr:
     if os.path.exists(self.drivers_folder) == False:
         self.drivers_folder = ""
     self.drivers_folder = self.drivers_folder
-    self.driver_param_folder = self.drivers_folder
-    '''
-    
-    self.drivers_folder = DRIVERS_FOLDER
-    self.driver_param_folder = DRIVERS_PARAM_FOLDER
+    nepi_msg.publishMsgInfo(self,"Driver folder set to " + self.drivers_folder)
 
-    #nepi_msg.publishMsgInfo(self,"Driver folder set to " + self.drivers_folder)
+    self.drvs_dict = nepi_drv.getDriversDict(self.drivers_folder)
+    nepi_msg.publishMsgInfo(self,"Init Drivers Dict keys " + str(self.drvs_dict.keys()))
     self.drivers_files = nepi_drv.getDriverFilesList(self.drivers_folder)
     #nepi_msg.publishMsgInfo(self,"Driver folder files " + str(self.drivers_files))
     nepi_msg.publishMsgInfo(self,"Driver folder set to " + self.drivers_folder)
@@ -146,7 +147,7 @@ class ONVIFMgr:
     self.configured_onvifs = nepi_ros.get_param(self,'~onvif_devices', {})
     nepi_msg.publishMsgInfo(self,"Starting device dict from param server: " + str(self.configured_onvifs) )
     # Get drv drivers database
-    self.drvs_dict = nepi_drv.getDriversDict(self.driver_param_folder)
+    drvs_dict = nepi_drv.getDriversDict(self.drivers_folder)
     self.drivers_files = nepi_drv.getDriverFilesList(self.drivers_folder)
     # Get active drivers list from nepi_mgr_drivers
     NEPI_DRIVERS_STATUS_TOPIC = self.base_namespace + 'drivers_mgr/status'
@@ -177,9 +178,11 @@ class ONVIFMgr:
     rospy.Service('~delete_device_cfg', OnvifDeviceCfgDelete, self.deleteDeviceCfgHandler)
     rospy.Service('~device_list_query', OnvifDeviceListQuery, self.provideDeviceList)
     rospy.Service('~resync_onvif_device_clocks', Empty, self.resyncOnvifDeviceClocks)
-    rospy.Service('~device_driver_list_query', OnvifDeviceDriverListQuery, self.provideDeviceDriverList)
-
+    rospy.Service('~driver_list_query', OnvifDriverListQuery, self.provideDeviceDriverList)
+    time.sleep(1)
     rospy.Subscriber('~allow_discovery_clearing', Bool, self.clearDiscCb, queue_size = 10)
+
+    self.status_pub = rospy.Publisher('~status', OnvifStatus, queue_size=1)
     
     # Must handle our own store params rather than offloading to SaveCfgIF per WARNING above
     self.store_params_publisher = rospy.Publisher('store_params', String, queue_size=1)
@@ -212,28 +215,28 @@ class ONVIFMgr:
       nepi_msg.publishMsgInfo(self,"Need to Update Drv Database")
       drvs_dict = nepi_drv.refreshDriversDict(self.drivers_param_folder,drvs_dict)
     #nepi_msg.publishMsgWarn(self,"Drivers Dict Keys: " + str(drvs_dict.keys()))
-    nepi_ros.set_param(self,"~drvs_dict",drvs_dict)
     #ln = sys._getframe().f_lineno ; self.printND('Info',ln)
     self.drivers_files = drivers_files
     # Next update available drivers base on active drivers
-    active_drivers_list = msg.drivers_active_list
+    active_drivers_list = msg.active_pkg_list
     #nepi_msg.publishMsgWarn(self,"Got Active Drivers list: " + str(active_drivers_list))
-    for drv_name in self.drvs_dict.keys():
+    for drv_name in drvs_dict.keys():
       active = False
       if drv_name in active_drivers_list:
         active = True
-      self.drvs_dict[drv_name]['active'] = active
+      drvs_dict[drv_name]['active'] = active
+    self.drvs_dict = drvs_dict
     active_drvs_dict = nepi_drv.getDriversByActive(self.drvs_dict)
     #nepi_msg.publishMsgWarn(self,"Active Drivers Dict Keys: " + str(active_drvs_dict.keys()))
     idx_drivers_dict = dict()
     ptx_drivers_dict = dict()
     for drv_name in active_drvs_dict.keys():
       drv_dict = active_drvs_dict[drv_name]
-      group = drv_dict['group']
+      type = drv_dict['type']
       group_id = drv_dict['group_id']
-      if group == "IDX" and group_id == "ONVIF":
+      if type == "IDX" and group_id == "ONVIF":
         idx_drivers_dict[drv_name] = drv_dict
-      elif group == "PTX" and group_id == "ONVIF":
+      elif type == "PTX" and group_id == "ONVIF":
         ptx_drivers_dict[drv_name] = drv_dict
     self.idx_drivers_dict = idx_drivers_dict
     self.ptx_drivers_dict = ptx_drivers_dict
@@ -244,62 +247,60 @@ class ONVIFMgr:
 
 
   def updateDeviceCfgHandler(self, req):
+    nepi_msg.publishMsgInfo(self,'Received device update req ' + str(req))
     device_cfg = req.cfg
-    if device_cfg.uuid == "Searching":
-      return OnvifDeviceCfgUpdateResponse(success = True)
+    uuid = device_cfg.uuid.upper()
+    
+    if uuid in self.detected_onvifs:
+      detected_device = self.detected_onvifs[uuid]
     else:
-      uuid = device_cfg.uuid.upper()
+      nepi_msg.publishMsgInfo(self,'Setting configuration for as-yet undetected device ' + str(uuid))
+      detected_device = None
+
+    # Make sure the node_base_name is legal ROS
+    legal_base_name = device_cfg.node_base_name.replace(' ', '_').replace('-','_')
+
+    # Make sure the specified drivers are known
+    if device_cfg.idx_driver == "":
+        idx_drv_dict = dict()
+    else:
+      if device_cfg.idx_driver not in self.idx_drivers_dict.keys():
+        nepi_msg.publishMsgWarn(self,'Unknown idx driver(s) specified ( ' + str(device_cfg.idx_driver) + ' )... will not update config')
+        return OnvifDeviceCfgUpdateResponse(success = False)
+      else:
+        idx_drv_dict = self.idx_drivers_dict[device_cfg.idx_driver]
+
+    if device_cfg.ptx_driver == "":
+        ptx_drv_dict = dict()
+    else:
+      if device_cfg.ptx_driver not in self.ptx_drivers_dict.keys():
+        nepi_msg.publishMsgWarn(self,'Unknown ptx driver(s) specified ( ' + str(device_cfg.ptx_driver) + ' )... will not update config')
+        return OnvifDeviceCfgUpdateResponse(success = False)
+      else:
+        ptx_drv_dict = self.ptx_drivers_dict[device_cfg.ptx_driver]        
+
+    updated_cfg = {
+      'device_name' : device_cfg.device_name,
+      'username' : device_cfg.username,
+      'password' : device_cfg.password,
+      'node_base_name' : legal_base_name,
+      'idx_enabled' : device_cfg.idx_enabled,
+      'ptx_enabled' : device_cfg.ptx_enabled,
+      'idx_driver' : device_cfg.idx_driver,
+      'idx_drv_dict': idx_drv_dict,
+      'ptx_driver' : device_cfg.ptx_driver,
+      'ptx_drv_dict': ptx_drv_dict
+    }
+    self.configured_onvifs[uuid] = updated_cfg
+    nepi_ros.set_param(self,'~onvif_devices', self.configured_onvifs)
+    # Now remove the device from the list of detected devices so that it can be rediscovered and properly connected and nodes launched
+    # using this updated config. If nodes are already running, stop them (to restart as newly-configured) and warn user
+    if detected_device:
+      if (detected_device['idx_subproc'] is not None) or (detected_device['ptx_subproc'] is not None):
+        nepi_msg.publishMsgWarn(self,'Config. for ' + str(uuid) + ' is updated, will restart any already-running nodes')
+        self.stopAndPurgeNodes(uuid)
       
-      if uuid in self.detected_onvifs:
-        detected_device = self.detected_onvifs[uuid]
-      else:
-        nepi_msg.publishMsgInfo(self,'Setting configuration for as-yet undetected device ' + str(uuid))
-        detected_device = None
-
-      # Make sure the node_base_name is legal ROS
-      legal_base_name = device_cfg.node_base_name.replace(' ', '_').replace('-','_')
-
-      # Make sure the specified drivers are known
-      if device_cfg.idx_driver == "":
-          idx_drv_dict = dict()
-      else:
-        if device_cfg.idx_driver not in self.idx_drivers_dict.keys():
-          nepi_msg.publishMsgWarn(self,'Unknown idx driver(s) specified ( ' + str(device_cfg.idx_driver) + ' )... will not update config')
-          return OnvifDeviceCfgUpdateResponse(success = False)
-        else:
-          idx_drv_dict = self.idx_drivers_dict[device_cfg.idx_driver]
-
-      if device_cfg.ptx_driver == "":
-          ptx_drv_dict = dict()
-      else:
-        if device_cfg.ptx_driver not in self.ptx_drivers_dict.keys():
-          nepi_msg.publishMsgWarn(self,'Unknown ptx driver(s) specified ( ' + str(device_cfg.ptx_driver) + ' )... will not update config')
-          return OnvifDeviceCfgUpdateResponse(success = False)
-        else:
-          ptx_drv_dict = self.ptx_drivers_dict[device_cfg.ptx_driver]        
-
-      updated_cfg = {
-        'device_name' : device_cfg.device_name,
-        'username' : device_cfg.username,
-        'password' : device_cfg.password,
-        'node_base_name' : legal_base_name,
-        'idx_enabled' : device_cfg.idx_enabled,
-        'ptx_enabled' : device_cfg.ptx_enabled,
-        'idx_driver' : device_cfg.idx_driver,
-        'idx_drv_dict': idx_drv_dict,
-        'ptx_driver' : device_cfg.ptx_driver,
-        'ptx_drv_dict': ptx_drv_dict
-      }
-      self.configured_onvifs[uuid] = updated_cfg
-      nepi_ros.set_param(self,'~onvif_devices', self.configured_onvifs)
-      # Now remove the device from the list of detected devices so that it can be rediscovered and properly connected and nodes launched
-      # using this updated config. If nodes are already running, stop them (to restart as newly-configured) and warn user
-      if detected_device:
-        if (detected_device['idx_subproc'] is not None) or (detected_device['ptx_subproc'] is not None):
-          nepi_msg.publishMsgWarn(self,'Config. for ' + str(uuid) + ' is updated, will restart any already-running nodes')
-          self.stopAndPurgeNodes(uuid)
-        
-        self.detected_onvifs.pop(uuid)
+      self.detected_onvifs.pop(uuid)
 
       # Must handle our own saving since topics don't work in this class (see WARNING above)
       if self.autosave_cfg_changes is True:
@@ -307,10 +308,12 @@ class ONVIFMgr:
         self.setCurrentSettingsAsDefault()
         self.store_params_publisher.publish(nepi_ros.get_node_namespace())
 
-      return OnvifDeviceCfgUpdateResponse(success = True)
+    return OnvifDeviceCfgUpdateResponse(success = True)
 
   def deleteDeviceCfgHandler(self, req):
+    nepi_msg.publishMsgInfo(self,'Received device delete req ' + str(req))
     uuid = req.device_uuid.upper()
+    nepi_msg.publishMsgInfo(self,'Checking for uuid: ' + str(uuid) + ' in keys ' + str(self.configured_onvifs.keys()))
     if uuid not in self.configured_onvifs:
       nepi_msg.publishMsgWarn(self,"Device is not configured... ignoring request to delete configuration")
       return OnvifDeviceCfgDeleteResponse(success = False)
@@ -321,6 +324,7 @@ class ONVIFMgr:
     if uuid in self.detected_onvifs:
       self.stopAndPurgeNodes(uuid)
       self.detected_onvifs.pop(uuid)
+      self.device_name_dict.pop(uuid)
 
     # Must handle our own saving since topics don't work in this class (see WARNING above)
     if self.autosave_cfg_changes is True:
@@ -331,12 +335,14 @@ class ONVIFMgr:
     return True
 
   def provideDeviceList(self, req):
+    #nepi_msg.publishMsgWarn(self,'Got Device List Request: ' + str(req))
     resp = OnvifDeviceListQueryResponse()
     # Statuses of detected devices
+    device_name = ''
     if len(self.detected_onvifs.keys()) == 0:
       resp_status_for_device = OnvifDeviceStatus()
-      resp_status_for_device.uuid = "Searching"
-      resp_status_for_device.device_name = "Searching"
+      resp_status_for_device.uuid = ""
+      resp_status_for_device.device_name = device_name
       resp_status_for_device.manufacturer = ""
       resp_status_for_device.model = ""
       resp_status_for_device.firmware_version = ""
@@ -348,14 +354,16 @@ class ONVIFMgr:
       resp_status_for_device.ptx_node_running = False
       resp.device_statuses.append(resp_status_for_device)
     else:
+
       for uuid in self.detected_onvifs:
         device = self.detected_onvifs[uuid]
+        if uuid in self.device_name_dict.keys():
+            device_name = self.device_name_dict[uuid]
+        else:
+            device_name = str(device['host']) + ":" + str(device['port'])
         resp_status_for_device = OnvifDeviceStatus()
         resp_status_for_device.uuid = uuid
-        if uuid in self.device_name_dict.keys():
-          resp_status_for_device.device_name = self.device_name_dict[uuid]
-        else:
-          resp_status_for_device.device_name = uuid
+        resp_status_for_device.device_name = device_name
 
         
         # Manufacturer settings
@@ -380,14 +388,15 @@ class ONVIFMgr:
         resp.device_statuses.append(resp_status_for_device)
       # Known configurations
       for uuid in self.configured_onvifs:
+        device = self.detected_onvifs[uuid]
+        if uuid in self.device_name_dict.keys():
+            device_name = self.device_name_dict[uuid]
+        else:
+            device_name = str(device['host']) + ":" + str(device['port'])
         resp_cfg_for_device = OnvifDeviceCfg()    
         resp_cfg_for_device.uuid = uuid
-      
+        resp_cfg_for_device.device_name = device_name
         config = self.configured_onvifs[uuid]
-        if uuid in self.device_name_dict.keys():
-          resp_cfg_for_device.device_name = self.device_name_dict[uuid]
-        else:
-          resp_cfg_for_device.device_name = uuid
         resp_cfg_for_device.username = config['username']
         resp_cfg_for_device.password = config['password']
         resp_cfg_for_device.node_base_name = config['node_base_name']
@@ -412,7 +421,7 @@ class ONVIFMgr:
     return EmptyResponse()
   
   def provideDeviceDriverList(self, _):
-    resp = OnvifDeviceDriverListQueryResponse()
+    resp = OnvifDriverListQueryResponse()
 
     idx_drivers_ordered = []
     for driver in self.idx_drivers_dict.keys():
@@ -467,7 +476,7 @@ class ONVIFMgr:
         parsed_xaddr = urllib.parse.urlparse(xaddr)
         hostname = parsed_xaddr.hostname
         port = parsed_xaddr.port if parsed_xaddr.port is not None else 80
-        
+        nepi_msg.publishMsgWarn(self,"Detected new ONVIF device at: " + str(hostname) + ":" + str(port))
         # Haven't found any universally valid way to determine if a device supports video and/or pan/tilt, so 
         # just hardcoding these as true for now -- up to the user to enable IDX or PTX as applicable
         #is_nvt = False
@@ -600,6 +609,11 @@ class ONVIFMgr:
       self.detected_onvifs.pop(uuid)
     
     #nepi_msg.publishMsgWarn(self,'Detected Onvif List ' + str(self.detected_onvifs))
+
+    status_msg = OnvifStatus()
+    status_msg.ready = True
+    self.status_pub.publish(status_msg)
+
     # And now that we are finished, start a timer for the drvt runDiscovery()
     delay = self.discovery_interval_s + extra_start_delay
     nepi_ros.timer(nepi_ros.duration(delay), self.runDiscovery, oneshot=True)
@@ -683,6 +697,7 @@ class ONVIFMgr:
           nepi_msg.publishMsgWarn(self,'Failed to launch driver node ' + ros_node_name )
       else:
         nepi_msg.publishMsgWarn(self,'Failed to find driver ' + driver_name + ' for launch driver node ' + ros_node_name )
+        nepi_msg.publishMsgWarn(self,'Driver Dict keys: ' + str(self.drvs_dict.keys()) )
 
     if start_ptx is True:
       driver_name = self.configured_onvifs[uuid]['ptx_driver']

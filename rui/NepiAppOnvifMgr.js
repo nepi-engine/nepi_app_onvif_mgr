@@ -6,7 +6,7 @@
  *
  * License: 3-clause BSD, see https://opensource.org/licenses/BSD-3-Clause
  */
-import React, { Component } from 'react';
+import React, { Component, useEffect } from 'react';
 import { observer, inject } from "mobx-react"
 
 import Toggle from "react-toggle"
@@ -25,8 +25,8 @@ import Styles from "./Styles"
 @inject("ros")
 @observer
 class OnvifMgr extends Component {
-  onvifDeviceStatuses = null
-  onvifDeviceConfigs = null
+  onvifDeviceStatuses = []
+  onvifDeviceConfigs = []
   onvifIDXDeviceDrivers = []
   onvifPTXDeviceDrivers = []
 
@@ -47,8 +47,10 @@ class OnvifMgr extends Component {
       selectedDeviceConfigPTXEnabled: false,
       selectedDeviceConfigIDXDriver: '',
       selectedDeviceConfigPTXDriver: '',
+      
+      needs_update: false,
+      app_connected: false
 
-      needs_update: false
     };
 
     this.handleUUIDSelection = this.handleUUIDSelection.bind(this)
@@ -63,81 +65,76 @@ class OnvifMgr extends Component {
 
 
     this.callOnvifDeviceListQueryService = this.callOnvifDeviceListQueryService.bind(this)
-    this.callOnvifDeviceDriverListQueryService = this.callOnvifDeviceDriverListQueryService.bind(this)
-    this.callDriversListQuery = this.callDriversListQuery.bind(this)
+    this.callOnvifDriverListQueryService = this.callOnvifDriverListQueryService.bind(this)
+
     this.onOnvifDeviceCfgUpdate = this.onOnvifDeviceCfgUpdate.bind(this)
     this.onOnvifDeviceCfgDelete = this.onOnvifDeviceCfgDelete.bind(this)
 
     // onvif mgr services
-    this.callOnvifDeviceListQueryService(true) // Start it polling
-    this.callOnvifDeviceDriverListQueryService(true) // Start it polling
+    //this.callOnvifDeviceListQueryService(true) // Start it polling
+    //this.callOnvifDriverListQueryService(true) // Start it polling
   }
 
 
   componentDidMount(){
-    this.setState({needs_update: true})
+    // onvif mgr services
+    this.callOnvifDeviceListQueryService(true) // Start it polling
+    this.callOnvifDriverListQueryService(true) // Start it polling
+    this.setState({needs_upadate: true, app_connected: false})
+    
   }
 
   async callOnvifDeviceListQueryService(poll = true) {
     const _pollOnce = async () => {
-      const resp = await this.props.ros.callService({
-        name: "app_onvif_mgr/device_list_query",
-        messageType: "nepi_ros_interfaces/OnvifDeviceListQuery",
-      })
+        const {topicTypes} = this.props.ros
+        const status_msg = "nepi_app_onvif_mgr/OnvifStatus"
+        const ready = topicTypes.indexOf(status_msg) !== -1
+        if (ready === true){
+          const resp = await this.props.ros.callService({
+            name: "app_onvif_mgr/device_list_query",
+            messageType: "nepi_ros_interfaces/OnvifDeviceListQuery",
+          })
 
-      this.onvifDeviceStatuses = resp['device_statuses']
-      this.onvifDeviceConfigs = resp['device_cfgs']
+          this.onvifDeviceStatuses = resp['device_statuses']
+          this.onvifDeviceConfigs = resp['device_cfgs']
+        }
 
-      this.setState({needs_update: false})
+        const nu = this.state.needs_update
+        this.setState({needs_update: !nu,app_connected: true})
+
+        if (poll) {
+          setTimeout(_pollOnce, 1000) // Slow because it doesn't really change
+        }
+    }
     
-      if (this.connectedToROS && poll) {
-        setTimeout(_pollOnce, 5000)
+    _pollOnce()
+  }
+
+  async callOnvifDriverListQueryService(poll = true) {
+    const _pollOnce = async () => {
+      const {topicTypes} = this.props.ros
+      const status_msg = "nepi_app_onvif_mgr/OnvifStatus"
+      const ready = topicTypes.indexOf(status_msg) !== -1
+      if (ready === true){
+        const resp = await this.props.ros.callService({
+          name: "app_onvif_mgr/driver_list_query",
+          messageType: "nepi_ros_interfaces/OnvifDriverListQuery"
+        })
+
+        this.onvifIDXDeviceDrivers = resp['idx_drivers']
+        this.onvifPTXDeviceDrivers = resp['ptx_drivers']
       }
+        const nu = this.state.needs_update
+        this.setState({needs_update: !nu,app_connected: true})
+
+        if (poll) {
+          setTimeout(_pollOnce, 5000) // Slow because it doesn't really change
+        }
     }
-
-    _pollOnce()
-  }
-
-  async callOnvifDeviceDriverListQueryService(poll = true) {
-    const _pollOnce = async () => {
-      const resp = await this.props.ros.callService({
-        name: "app_onvif_mgr/device_driver_list_query",
-        messageType: "nepi_ros_interfaces/OnvifDeviceDriverListQuery"
-      })
-
-      this.onvifIDXDeviceDrivers = resp['idx_drivers']
-      this.onvifPTXDeviceDrivers = resp['ptx_drivers']
-
-      this.setState({needs_update: false})
-    }
-
-    if (this.connectedToROS && poll) {
-      setTimeout(_pollOnce, 10000) // Slow because it doesn't really change
-    }
-    _pollOnce()
-  }
-
-
-
-  async callDriversListQuery(poll = true) {
-    const _pollOnce = async () => {
-      const resp = await this.props.ros.callService({
-        name: "app_onvif_mgr/drivers_list_query",
-        messageType: "nepi_ros_interfaces/OnvifDeviceListQuery",
-      })
-
-      this.DriversListQuery = resp['drivers_list_query']
-      this.onvifDeviceConfigs = resp['device_cfgs']
-
-      this.setState({needs_update: false})
     
-      if (this.connectedToROS && poll) {
-        setTimeout(_pollOnce, 5000)
-      }
-    }
-
     _pollOnce()
   }
+
 
 
 
@@ -151,7 +148,7 @@ class OnvifMgr extends Component {
 
 
   async onOnvifDeviceCfgDelete(uuid) {
-    await this.callService({
+    await this.props.ros.callService({
       name: "app_onvif_mgr/delete_device_cfg",
       messageType: "nepi_ros_interfaces/OnvifDeviceCfgDelete",
       args: {device_uuid : uuid}
@@ -162,8 +159,20 @@ class OnvifMgr extends Component {
   handleUUIDSelection(item) {
     //const { onvifDeviceConfigs, onvifIDXDeviceDrivers, onvifPTXDeviceDrivers } = this.props.ros;
     let selectedConfig = null
-    for (let i = 0; i < this.onvifDeviceConfigs.length; i++) {
-      const config = this.onvifDeviceConfigs[i]
+    var uuid = ''
+    const statuses = this.onvifDeviceStatuses
+    for (let i = 0; i < statuses.length; i++) {
+      const status = statuses[i]
+      const devname = status.device_name
+      if (devname === item) {
+        uuid = status.uuid
+        break
+      }
+    }
+
+    const configs = this.onvifDeviceConfigs
+    for (let i = 0; i < configs.length; i++) {
+      const config = configs[i]
       const devname = config.device_name
       if (devname === item) {
         selectedConfig = config
@@ -175,10 +184,10 @@ class OnvifMgr extends Component {
     const defaultPTXDeviceDriver = (this.onvifPTXDeviceDrivers.length > 0)? this.onvifPTXDeviceDrivers[0] : ''
 
     this.setState({ 
-      selectedDeviceUUID: selectedConfig? selectedConfig.uuid : item,
+      selectedDeviceUUID: selectedConfig? selectedConfig.uuid : uuid,
 
       selectedDeviceConfigModified: false,
-      selectedDeviceConfigUUID: selectedConfig? selectedConfig.uuid : item,
+      selectedDeviceConfigUUID: selectedConfig? selectedConfig.uuid : '',
       selectedDeviceConfigDevicename: selectedConfig? selectedConfig.device_name : '',
       selectedDeviceConfigUsername: selectedConfig? selectedConfig.username : '',
       selectedDeviceConfigPassword: selectedConfig? selectedConfig.password : '',
@@ -191,15 +200,13 @@ class OnvifMgr extends Component {
   };
 
   handleNewConfigClick() {
-    //const { onvifIDXDeviceDrivers, onvifPTXDeviceDrivers } = this.props.ros;
-
     this.setState({
       selectedDeviceUUID: null,
       selectedDeviceConfigModified: true,
-      selectedDeviceConfigUUID: 'XXXX-XXXX-XXXX-XXXXXXXXXXXX',
-      selectedDeviceConfigDevoceName: 'device_name',
-      selectedDeviceConfigUsername: 'admin',
-      selectedDeviceConfigPassword: 'admin',
+      selectedDeviceConfigUUID: '',
+      selectedDeviceConfigDeviceName: '',
+      selectedDeviceConfigUsername: '',
+      selectedDeviceConfigPassword: '',
       selectedDeviceConfigBasename: 'new_onvif_device',
       selectedDeviceIDXEnabled: false,
       selectedDevicePTXEnabled: false,
@@ -209,7 +216,6 @@ class OnvifMgr extends Component {
   }
 
   async handleUpdateConfigClick(uuid) {
-    const { callOnvifDeviceListQueryService } = this.props.ros
     let updated_config = {
       uuid : uuid,
       device_name : this.state.selectedDeviceConfigDevicename,
@@ -221,15 +227,12 @@ class OnvifMgr extends Component {
       idx_driver : this.state.selectedDeviceConfigIDXDriver,
       ptx_driver : this.state.selectedDeviceConfigPTXDriver
     }
-    this.props.ros.onOnvifDeviceCfgUpdate(updated_config)
+    this.onOnvifDeviceCfgUpdate(updated_config)
     this.setState({selectedDeviceConfigModified: false})
-
-    await callOnvifDeviceListQueryService(false) // Call a one-shot for more responsive experience
   }
 
   async handleDeleteConfigClick() {
-    const { onOnvifDeviceCfgDelete, callOnvifDeviceListQueryService } = this.props.ros
-    onOnvifDeviceCfgDelete(this.state.selectedDeviceConfigUUID)
+    this.onOnvifDeviceCfgDelete(this.state.selectedDeviceConfigUUID)
 
     this.setState({
       selectedDeviceConfigUUID: '',
@@ -242,8 +245,6 @@ class OnvifMgr extends Component {
       selectedDeviceConfigIDXDriver: '',
       selectedDeviceConfigPTXDriver: ''
     })
-
-    await callOnvifDeviceListQueryService(false) // Call a one-shot for more responsive experience
   };
 
   onChangeTextField(e) {
@@ -331,15 +332,27 @@ class OnvifMgr extends Component {
         
     let detectedDeviceUUIDsForListBox = []
     let detectedDeviceDevNamesForListBox = []
-    if (this.onvifDeviceStatuses !== null) {
-      for (let i = 0; i < this.onvifDeviceStatuses.length; i++) {
-        const status = this.onvifDeviceStatuses[i]
-        const uuid = status.uuid
-        const devname = status.device_name
-        detectedDeviceUUIDsForListBox.push(uuid)
-        detectedDeviceDevNamesForListBox.push(devname)
-        if ((selectedDeviceUUID !== null) && (uuid === selectedDeviceUUID)) {
-          selectedDeviceStatus = status
+    const needs_update = this.state.needs_upadate
+    const app_connected = this.state.app_connected
+    const onvifDeviceStatuses = this.onvifDeviceStatuses
+    if (app_connected === false || onvifDeviceStatuses.length == 0){
+      detectedDeviceDevNamesForListBox.push("Application Loading")
+    }
+    else if (onvifDeviceStatuses.length > 0) {
+      const searching = (onvifDeviceStatuses[0].uuid === "")
+      if (searching === true){
+        detectedDeviceDevNamesForListBox.push("Searching for Devices")
+      }
+      else{
+        for (let i = 0; i < onvifDeviceStatuses.length; i++) {
+          const status = onvifDeviceStatuses[i]
+          const uuid = status.uuid
+          const devname = status.device_name
+          detectedDeviceUUIDsForListBox.push(uuid)
+          detectedDeviceDevNamesForListBox.push(devname)
+          if ((selectedDeviceUUID !== null) && (uuid === selectedDeviceUUID)) {
+            selectedDeviceStatus = status
+          }
         }
       }
     }
@@ -359,9 +372,7 @@ class OnvifMgr extends Component {
     let config_text_color = (selectedDeviceConfigModified)? Styles.vars.colors.red : Styles.vars.colors.black
     let config_text_weight = (selectedDeviceConfigModified)? "bold" : "normal"
 
-    let uuid_for_config_text_field = (selectedDeviceConfigUUID !== '')?
-      selectedDeviceConfigUUID :
-      (selectedDeviceUUID !== null)? selectedDeviceUUID : ''
+    let uuid_for_config_text_field = selectedDeviceUUID
      
     
     return (
@@ -524,13 +535,19 @@ class OnvifMgr extends Component {
                 </Label>                
               </Column>
             </Columns>
+
+
             <ButtonMenu>
+
+            {/*
               <Button
                 id="new_config_button"
                 onClick={this.handleNewConfigClick}
               >
                 {"New Config"}
               </Button>
+            */}
+
               <Button
                 id="delete_config_button"
                 onClick={this.handleDeleteConfigClick}
@@ -539,7 +556,7 @@ class OnvifMgr extends Component {
                 {"Delete Config"}
               </Button>
               <Button
-                id="apply_changes_button"
+                id="create_config_button"
                 onClick={() => {this.handleUpdateConfigClick(uuid_for_config_text_field)}} 
                 style={{color: config_text_color}}
                 hidden={!selectedDeviceConfigModified}
