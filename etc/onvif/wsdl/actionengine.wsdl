@@ -929,12 +929,12 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 			<!--===============================-->
 			<xs:complexType name="FtpContentConfigurationUploadImages">
 				<xs:sequence>
-					<xs:element name="HowLong" type="xs:ros_ros_ros_duration">
+					<xs:element name="HowLong" type="xs:duration">
 						<xs:annotation>
 							<xs:documentation>Upload Image action; how long?</xs:documentation>
 						</xs:annotation>
 					</xs:element>
-					<xs:element name="SampleInterval" type="xs:ros_ros_ros_duration">
+					<xs:element name="SampleInterval" type="xs:duration">
 						<xs:annotation>
 							<xs:documentation>Upload Image action; sample interval?</xs:documentation>
 						</xs:annotation>
@@ -1009,19 +1009,19 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 			<!--===============================-->
 			<xs:complexType name="TriggeredRecordingConfiguration">
 				<xs:sequence>
-					<xs:element name="PreRecordDuration" type="xs:ros_ros_ros_duration">
+					<xs:element name="PreRecordDuration" type="xs:duration">
 						<xs:annotation>
 							<xs:documentation>Length of recording time before the triggering event</xs:documentation>
 						</xs:annotation>
 					</xs:element>
-					<xs:element name="PostRecordDuration" type="xs:ros_ros_ros_duration">
+					<xs:element name="PostRecordDuration" type="xs:duration">
 						<xs:annotation>
-							<xs:documentation>Recording after alarm recording ros_ros_ros_duration</xs:documentation>
+							<xs:documentation>Recording after alarm recording duration</xs:documentation>
 						</xs:annotation>
 					</xs:element>
-					<xs:element name="RecordDuration" type="xs:ros_ros_ros_duration">
+					<xs:element name="RecordDuration" type="xs:duration">
 						<xs:annotation>
-							<xs:documentation>Record ros_ros_ros_duration</xs:documentation>
+							<xs:documentation>Record duration</xs:documentation>
 						</xs:annotation>
 					</xs:element>
 					<xs:element name="RecordFrameRate" type="xs:positiveInteger" minOccurs="0">

@@ -1054,7 +1054,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 								</xs:documentation>
 							</xs:annotation>
 						</xs:element>
-						<xs:element name="TTL" type="xs:ros_ros_ros_duration" minOccurs="0">
+						<xs:element name="TTL" type="xs:duration" minOccurs="0">
 							<xs:annotation>
 								<xs:documentation>
 									DNS record time to live.
@@ -1818,8 +1818,8 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 				<xs:complexType>
 					<xs:sequence>
 						<xs:element name="UploadUri" type="xs:anyURI"/>
-						<xs:element name="UploadDelay" type="xs:ros_ros_ros_duration"/>
-						<xs:element name="ExpectedDownTime" type="xs:ros_ros_ros_duration"/>
+						<xs:element name="UploadDelay" type="xs:duration"/>
+						<xs:element name="ExpectedDownTime" type="xs:duration"/>
 					</xs:sequence>
 				</xs:complexType>
 			</xs:element>
@@ -1833,7 +1833,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 				<xs:complexType>
 					<xs:sequence>
 						<xs:element name="UploadUri" type="xs:anyURI"/>
-						<xs:element name="ExpectedDownTime" type="xs:ros_ros_ros_duration"/>
+						<xs:element name="ExpectedDownTime" type="xs:duration"/>
 					</xs:sequence>
 				</xs:complexType>
 			</xs:element>
@@ -3002,7 +3002,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 				Firmware upgrade over HTTP may be achieved using the following steps:<ol>
 					<li>Client calls StartFirmwareUpgrade.</li>
 					<li>Server responds with upload URI and optional delay value.</li>
-					<li>Client waits for delay ros_ros_ros_duration if specified by server.</li>
+					<li>Client waits for delay duration if specified by server.</li>
 					<li>Client transmits the firmware image to the upload URI using HTTP POST.</li>
 					<li>Server reprograms itself using the uploaded image, then reboots.</li>
 				</ol>

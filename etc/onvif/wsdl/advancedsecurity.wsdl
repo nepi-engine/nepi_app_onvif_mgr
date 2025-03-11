@@ -604,7 +604,7 @@
 								<xs:documentation>The key ID of the key pair being generated.</xs:documentation>
 							</xs:annotation>
 						</xs:element>
-						<xs:element name="EstimatedCreationTime" type="xs:ros_ros_ros_duration">
+						<xs:element name="EstimatedCreationTime" type="xs:duration">
 							<xs:annotation>
 								<xs:documentation>Best-effort estimate of how long the key generation will take.</xs:documentation>
 							</xs:annotation>

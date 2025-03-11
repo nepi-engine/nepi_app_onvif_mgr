@@ -99,7 +99,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 								<xs:documentation>The search will be completed after this many matches. If not specified, the search will continue until reaching the endpoint or until the session expires.</xs:documentation>
 							</xs:annotation>
 						</xs:element>
-						<xs:element name="KeepAliveTime" type="xs:ros_ros_ros_duration">
+						<xs:element name="KeepAliveTime" type="xs:duration">
 							<xs:annotation>
 								<xs:documentation>The time the search session will be kept alive after responding to this and subsequent requests. A device shall support at least values up to ten seconds.</xs:documentation>
 							</xs:annotation>
@@ -136,7 +136,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 								<xs:documentation>The maximum number of results to return in one response.</xs:documentation>
 							</xs:annotation>
 						</xs:element>
-						<xs:element name="WaitTime" type="xs:ros_ros_ros_duration" minOccurs="0">
+						<xs:element name="WaitTime" type="xs:duration" minOccurs="0">
 							<xs:annotation>
 								<xs:documentation>The maximum time before responding to the request, even if the MinResults parameter is not fulfilled.</xs:documentation>
 							</xs:annotation>
@@ -180,7 +180,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 								<xs:documentation>The search will be completed after this many matches. If not specified, the search will continue until reaching the endpoint or until the session expires.</xs:documentation>
 							</xs:annotation>
 						</xs:element>
-						<xs:element name="KeepAliveTime" type="xs:ros_ros_ros_duration">
+						<xs:element name="KeepAliveTime" type="xs:duration">
 							<xs:annotation>
 								<xs:documentation>The time the search session will be kept alive after responding to this and subsequent requests. A device shall support at least values up to ten seconds.</xs:documentation>
 							</xs:annotation>
@@ -221,7 +221,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 								<xs:documentation>The maximum number of results to return in one response.</xs:documentation>
 							</xs:annotation>
 						</xs:element>
-						<xs:element name="WaitTime" type="xs:ros_ros_ros_duration" minOccurs="0">
+						<xs:element name="WaitTime" type="xs:duration" minOccurs="0">
 							<xs:annotation>
 								<xs:documentation>The maximum time before responding to the request, even if the MinResults parameter is not fulfilled.</xs:documentation>
 							</xs:annotation>
@@ -260,7 +260,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 								<xs:documentation>The search will be completed after this many matches. If not specified, the search will continue until reaching the endpoint or until the session expires.</xs:documentation>
 							</xs:annotation>
 						</xs:element>
-						<xs:element name="KeepAliveTime" type="xs:ros_ros_ros_duration">
+						<xs:element name="KeepAliveTime" type="xs:duration">
 							<xs:annotation>
 								<xs:documentation>The time the search session will be kept alive after responding to this and subsequent requests. A device shall support at least values up to ten seconds.</xs:documentation>
 							</xs:annotation>
@@ -301,7 +301,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 								<xs:documentation>The maximum number of results to return in one response.</xs:documentation>
 							</xs:annotation>
 						</xs:element>
-						<xs:element name="WaitTime" type="xs:ros_ros_ros_duration" minOccurs="0">
+						<xs:element name="WaitTime" type="xs:duration" minOccurs="0">
 							<xs:annotation>
 								<xs:documentation>The maximum time before responding to the request, even if the MinResults parameter is not fulfilled.</xs:documentation>
 							</xs:annotation>
@@ -340,7 +340,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 								<xs:documentation>The search will be completed after this many matches. If not specified, the search will continue until reaching the endpoint or until the session expires.</xs:documentation>
 							</xs:annotation>
 						</xs:element>
-						<xs:element name="KeepAliveTime" type="xs:ros_ros_ros_duration">
+						<xs:element name="KeepAliveTime" type="xs:duration">
 							<xs:annotation>
 								<xs:documentation>The time the search session will be kept alive after responding to this and subsequent requests. A device shall support at least values up to ten seconds.</xs:documentation>
 							</xs:annotation>
@@ -381,7 +381,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 								<xs:documentation>The maximum number of results to return in one response.</xs:documentation>
 							</xs:annotation>
 						</xs:element>
-						<xs:element name="WaitTime" type="xs:ros_ros_ros_duration" minOccurs="0">
+						<xs:element name="WaitTime" type="xs:duration" minOccurs="0">
 							<xs:annotation>
 								<xs:documentation>The maximum time before responding to the request, even if the MinResults parameter is not fulfilled.</xs:documentation>
 							</xs:annotation>

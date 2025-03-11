@@ -156,7 +156,7 @@ This document and the information contained herein is provided on an "AS IS" bas
 <!-- ========== Message Types for NotificationProducer  =========== -->
 
   <xsd:simpleType name="AbsoluteOrRelativeTimeType">
-    <xsd:union memberTypes="xsd:dateTime xsd:ros_ros_ros_duration" />
+    <xsd:union memberTypes="xsd:dateTime xsd:duration" />
   </xsd:simpleType>
 
   <xsd:element name="CurrentTime" type="xsd:dateTime" />

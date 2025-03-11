@@ -125,7 +125,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 			<xs:element name="PullMessages">
 				<xs:complexType>
 					<xs:sequence>
-						<xs:element name="Timeout" type="xs:ros_ros_ros_duration">
+						<xs:element name="Timeout" type="xs:duration">
 							<xs:annotation>
 								<xs:documentation>Maximum time to block until this method returns.</xs:documentation>
 							</xs:annotation>
@@ -163,7 +163,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 			<xs:element name="PullMessagesFaultResponse">
 				<xs:complexType>
 					<xs:sequence>
-						<xs:element name="MaxTimeout" type="xs:ros_ros_ros_duration">
+						<xs:element name="MaxTimeout" type="xs:duration">
 							<xs:annotation>
 								<xs:documentation>Maximum timeout supported by the device.</xs:documentation>
 							</xs:annotation>

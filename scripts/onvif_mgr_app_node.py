@@ -187,7 +187,7 @@ class ONVIFMgr:
     # Must handle our own store params rather than offloading to SaveCfgIF per WARNING above
     self.store_params_publisher = rospy.Publisher('store_params', String, queue_size=1)
 
-    nepi_ros.timer(nepi_ros.ros_ros_ros_duration(self.discovery_interval_s), self.runDiscovery, oneshot=True)
+    nepi_ros.timer(nepi_ros.ros_duration(self.discovery_interval_s), self.runDiscovery, oneshot=True)
     #########################################################
     ## Initiation Complete
     nepi_msg.publishMsgInfo(self,"Initialization Complete")
@@ -616,7 +616,7 @@ class ONVIFMgr:
 
     # And now that we are finished, start a timer for the drvt runDiscovery()
     delay = self.discovery_interval_s + extra_start_delay
-    nepi_ros.timer(nepi_ros.ros_ros_ros_duration(delay), self.runDiscovery, oneshot=True)
+    nepi_ros.timer(nepi_ros.ros_duration(delay), self.runDiscovery, oneshot=True)
 
   def attemptONVIFConnection(self, uuid):
     if uuid not in self.detected_onvifs:
