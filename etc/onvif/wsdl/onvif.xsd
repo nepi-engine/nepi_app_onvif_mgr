@@ -107,11 +107,11 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 	<!--===============================-->
 	<xs:complexType name="DurationRange">
 		<xs:annotation>
-			<xs:documentation>Range of duration greater equal Min duration and less equal Max duration.</xs:documentation>
+			<xs:documentation>Range of ros_ros_ros_duration greater equal Min ros_ros_ros_duration and less equal Max ros_ros_ros_duration.</xs:documentation>
 		</xs:annotation>
 		<xs:sequence>
-			<xs:element name="Min" type="xs:duration"/>
-			<xs:element name="Max" type="xs:duration"/>
+			<xs:element name="Min" type="xs:ros_ros_ros_duration"/>
+			<xs:element name="Max" type="xs:ros_ros_ros_duration"/>
 		</xs:sequence>
 	</xs:complexType>
 	<!--===============================-->
@@ -522,7 +522,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 							<xs:documentation>Defines the multicast settings that could be used for video streaming.</xs:documentation>
 						</xs:annotation>
 					</xs:element>
-					<xs:element name="SessionTimeout" type="xs:duration">
+					<xs:element name="SessionTimeout" type="xs:ros_ros_ros_duration">
 						<xs:annotation>
 							<xs:documentation>The rtsp session timeout for the related video stream</xs:documentation>
 						</xs:annotation>
@@ -868,7 +868,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 							<xs:documentation>Defines the multicast settings that could be used for video streaming.</xs:documentation>
 						</xs:annotation>
 					</xs:element>
-					<xs:element name="SessionTimeout" type="xs:duration">
+					<xs:element name="SessionTimeout" type="xs:ros_ros_ros_duration">
 						<xs:annotation>
 							<xs:documentation>The rtsp session timeout for the related audio stream</xs:documentation>
 						</xs:annotation>
@@ -968,7 +968,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 							<xs:documentation>Defines the multicast settings that could be used for video streaming.</xs:documentation>
 						</xs:annotation>
 					</xs:element>
-					<xs:element name="SessionTimeout" type="xs:duration">
+					<xs:element name="SessionTimeout" type="xs:ros_ros_ros_duration">
 						<xs:annotation>
 							<xs:documentation>The rtsp session timeout for the related audio stream</xs:documentation>
 						</xs:annotation>
@@ -1525,7 +1525,7 @@ decoding .A decoder shall decode every data it receives (according to its capabi
 					<xs:documentation>Indicates if the Uri is invalid after a reboot of the device. The value shall be set to "false".</xs:documentation>
 				</xs:annotation>
 			</xs:element>
-			<xs:element name="Timeout" type="xs:duration">
+			<xs:element name="Timeout" type="xs:ros_ros_ros_duration">
 				<xs:annotation>
 					<xs:documentation>Duration how long the Uri is valid. This parameter shall be set to PT0S to indicate that this stream URI is indefinitely valid even if the profile changes</xs:documentation>
 				</xs:annotation>
@@ -2090,7 +2090,7 @@ decoding .A decoder shall decode every data it receives (according to its capabi
 					<xs:documentation>DNS name.</xs:documentation>
 				</xs:annotation>
 			</xs:element>
-			<xs:element name="TTL" type="xs:duration" minOccurs="0">
+			<xs:element name="TTL" type="xs:ros_ros_ros_duration" minOccurs="0">
 				<xs:annotation>
 					<xs:documentation>Time to live.</xs:documentation>
 				</xs:annotation>
@@ -3531,7 +3531,7 @@ decoding .A decoder shall decode every data it receives (according to its capabi
 					</xs:documentation>
 				</xs:annotation>
 			</xs:element>
-			<xs:element name="DelayTime" type="xs:duration">
+			<xs:element name="DelayTime" type="xs:ros_ros_ros_duration">
 				<xs:annotation>
 					<xs:documentation>Time after which the relay returns to its idle state if it is in monostable mode. If the Mode field is set to bistable mode the value of the parameter can be ignored.</xs:documentation>
 				</xs:annotation>
@@ -3743,7 +3743,7 @@ decoding .A decoder shall decode every data it receives (according to its capabi
               </xs:documentation>
 						</xs:annotation>
 					</xs:element>
-					<xs:element name="DefaultPTZTimeout" type="xs:duration" minOccurs="0">
+					<xs:element name="DefaultPTZTimeout" type="xs:ros_ros_ros_duration" minOccurs="0">
 						<xs:annotation>
 							<xs:documentation>
                 If the PTZ Node supports continuous movements, it shall specify a default timeout, after which the movement stops.
@@ -4343,9 +4343,9 @@ decoding .A decoder shall decode every data it receives (according to its capabi
 					<xs:documentation>Optional parameter to specify Pan/Tilt and Zoom speed on moving toward this tour spot.</xs:documentation>
 				</xs:annotation>
 			</xs:element>
-			<xs:element name="StayTime" type="xs:duration" minOccurs="0">
+			<xs:element name="StayTime" type="xs:ros_ros_ros_duration" minOccurs="0">
 				<xs:annotation>
-					<xs:documentation>Optional parameter to specify time duration of staying on this tour sport.</xs:documentation>
+					<xs:documentation>Optional parameter to specify time ros_ros_ros_duration of staying on this tour sport.</xs:documentation>
 				</xs:annotation>
 			</xs:element>
 			<xs:element name="Extension" type="tt:PTZPresetTourSpotExtension" minOccurs="0"/>
@@ -4420,9 +4420,9 @@ decoding .A decoder shall decode every data it receives (according to its capabi
 					<xs:documentation>Optional parameter to specify how many times the preset tour is recurred.</xs:documentation>
 				</xs:annotation>
 			</xs:element>
-			<xs:element name="RecurringDuration" type="xs:duration" minOccurs="0">
+			<xs:element name="RecurringDuration" type="xs:ros_ros_ros_duration" minOccurs="0">
 				<xs:annotation>
-					<xs:documentation>Optional parameter to specify how long time duration the preset tour is recurred.</xs:documentation>
+					<xs:documentation>Optional parameter to specify how long time ros_ros_ros_duration the preset tour is recurred.</xs:documentation>
 				</xs:annotation>
 			</xs:element>
 			<xs:element name="Direction" type="tt:PTZPresetTourDirection" minOccurs="0">
@@ -5273,7 +5273,7 @@ If set to 0.0, infinity will be used.</xs:documentation>
 					<xs:documentation>Adjusts boundary exposure level for toggling Ir cut filter to on/off specified with unitless normalized value from +1.0 to -1.0. Zero is default and -1.0 is the darkest adjustment (Unitless).</xs:documentation>
 				</xs:annotation>
 			</xs:element>
-			<xs:element name="ResponseTime" type="xs:duration" minOccurs="0">
+			<xs:element name="ResponseTime" type="xs:ros_ros_ros_duration" minOccurs="0">
 				<xs:annotation>
 					<xs:documentation>Delay time of toggling Ir cut filter to on/off after crossing of the boundary exposure levels.</xs:documentation>
 				</xs:annotation>
@@ -7617,7 +7617,7 @@ and sample rate. </xs:documentation>
 					<xs:documentation>Informative description of the source.</xs:documentation>
 				</xs:annotation>
 			</xs:element>
-			<xs:element name="MaximumRetentionTime" type="xs:duration">
+			<xs:element name="MaximumRetentionTime" type="xs:ros_ros_ros_duration">
 				<xs:annotation>
 					<xs:documentation>Sspecifies the maximum time that data in any track within the
 				recording shall be stored. The device shall delete any data older than the maximum retention
@@ -7910,7 +7910,7 @@ and sample rate. </xs:documentation>
     </xs:documentation>
 		</xs:annotation>
 		<xs:sequence>
-			<xs:element name="SessionTimeout" type="xs:duration">
+			<xs:element name="SessionTimeout" type="xs:ros_ros_ros_duration">
 				<xs:annotation>
 					<xs:documentation>The RTSP session timeout.</xs:documentation>
 				</xs:annotation>

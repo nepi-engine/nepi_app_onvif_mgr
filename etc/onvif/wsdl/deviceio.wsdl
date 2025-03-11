@@ -563,7 +563,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 								<xs:documentation>The serial port data.</xs:documentation>
 							</xs:annotation>
 						</xs:element>
-						<xs:element name="TimeOut" type="xs:duration" minOccurs="0">
+						<xs:element name="TimeOut" type="xs:ros_ros_ros_duration" minOccurs="0">
 							<xs:annotation>
 								<xs:documentation>Indicates that the command should be responded back within the specified period of time.</xs:documentation>
 							</xs:annotation>

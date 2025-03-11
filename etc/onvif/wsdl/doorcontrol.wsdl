@@ -465,13 +465,13 @@ Extension for the AccessDoor command.
             <xs:element name="UseExtendedTime" type="xs:boolean" minOccurs="0"><xs:annotation>
                 <xs:documentation>Optional - Indicates that the configured extended time should be used.</xs:documentation>
               </xs:annotation></xs:element>
-            <xs:element name="AccessTime" type="xs:duration" minOccurs="0"><xs:annotation>
+            <xs:element name="AccessTime" type="xs:ros_ros_ros_duration" minOccurs="0"><xs:annotation>
                 <xs:documentation>Optional - overrides AccessTime if specified.</xs:documentation>
               </xs:annotation></xs:element>
-            <xs:element name="OpenTooLongTime" type="xs:duration" minOccurs="0"><xs:annotation>
+            <xs:element name="OpenTooLongTime" type="xs:ros_ros_ros_duration" minOccurs="0"><xs:annotation>
                 <xs:documentation>Optional - overrides OpenTooLongTime if specified (DOTL).</xs:documentation>
               </xs:annotation></xs:element>
-            <xs:element name="PreAlarmTime" type="xs:duration" minOccurs="0"><xs:annotation>
+            <xs:element name="PreAlarmTime" type="xs:ros_ros_ros_duration" minOccurs="0"><xs:annotation>
                 <xs:documentation>Optional - overrides PreAlarmTime if specified.</xs:documentation>
               </xs:annotation></xs:element>
             <xs:element name="Extension" type="tdc:AccessDoorExtension" minOccurs="0"><xs:annotation>
