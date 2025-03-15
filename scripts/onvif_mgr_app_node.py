@@ -35,7 +35,7 @@ from xml.etree import ElementTree as ET
 
 from nepi_sdk import nepi_ros
 from nepi_sdk import nepi_msg
-from nepi_sdk import nepi_drv
+from nepi_sdk import nepi_drvs
 
 from std_msgs.msg import String, Bool
 from std_srvs.srv import Empty, EmptyResponse
@@ -49,27 +49,13 @@ from nepi_app_onvif_mgr.srv import OnvifDriverListQuery, OnvifDriverListQueryRes
 
 MGR_NAME = 'ONVIF Manager' # Use in display menus
 FILE_TYPE = 'MANAGER'
-MGR_DICT = dict(
-    description = 'Application for managing onvif device connection credentials',
-    pkg_name = 'nepi_managers',
-    group_name = 'DRIVER',
-    config_file = 'onvif_mgr.yaml',
-    app_file = 'onvif_mgr.py',
-    node_name = 'onvif_mgr'
-)
-RUI_DICT = dict(
-    rui_menu_name = "ONVIF Device Manager", # RUI menu name or "None" if no rui support
-    rui_files = ['NepiDriverOnvif.js'],
-    rui_main_file = "NepiDriverOnvif.js",
-    rui_main_class = "OnvifMgr"
-)
-
-
 
 DRIVERS_FOLDER = '/opt/nepi/ros/lib/nepi_drivers'
 
 
 class ONVIFMgr:
+
+  NODE_LAUNCH_TIME_SEC = 20  # Will not check node status before
 
   DEFAULT_NEPI_CONFIG_PATH = "/opt/nepi/ros/etc"
   WSDL_FOLDER = os.path.join(DEFAULT_NEPI_CONFIG_PATH, "onvif/wsdl/")
@@ -124,12 +110,12 @@ class ONVIFMgr:
     self.drivers_folder = self.drivers_folder
     nepi_msg.publishMsgInfo(self,"Driver folder set to " + self.drivers_folder)
 
-    self.drvs_dict = nepi_drv.getDriversDict(self.drivers_folder)
+    self.drvs_dict = nepi_drvs.getDriversDict(self.drivers_folder)
     nepi_msg.publishMsgInfo(self,"Init Drivers Dict keys " + str(self.drvs_dict.keys()))
-    self.drivers_files = nepi_drv.getDriverFilesList(self.drivers_folder)
+    self.drivers_files = nepi_drvs.getDriverFilesList(self.drivers_folder)
     #nepi_msg.publishMsgInfo(self,"Driver folder files " + str(self.drivers_files))
     nepi_msg.publishMsgInfo(self,"Driver folder set to " + self.drivers_folder)
-    self.drivers_install_files = nepi_drv.getDriverPackagesList(self.drivers_folder)
+    self.drivers_install_files = nepi_drvs.getDriverPackagesList(self.drivers_folder)
     nepi_msg.publishMsgInfo(self,"Driver install packages folder files " + str(self.drivers_install_files))  
     
     
@@ -147,8 +133,8 @@ class ONVIFMgr:
     self.configured_onvifs = nepi_ros.get_param(self,'~onvif_devices', {})
     nepi_msg.publishMsgInfo(self,"Starting device dict from param server: " + str(self.configured_onvifs) )
     # Get drv drivers database
-    drvs_dict = nepi_drv.getDriversDict(self.drivers_folder)
-    self.drivers_files = nepi_drv.getDriverFilesList(self.drivers_folder)
+    drvs_dict = nepi_drvs.getDriversDict(self.drivers_folder)
+    self.drivers_files = nepi_drvs.getDriverFilesList(self.drivers_folder)
     # Get active drivers list from nepi_mgr_drivers
     NEPI_DRIVERS_STATUS_TOPIC = self.base_namespace + 'drivers_mgr/status'
     nepi_msg.publishMsgInfo(self,'Waiting for driver_mgr status message')
@@ -209,11 +195,11 @@ class ONVIFMgr:
   def driversStatusCb(self,msg):
     # First check if drv driver database needs updating
     drvs_dict = self.drvs_dict
-    drivers_files = nepi_drv.getDriverFilesList(self.drivers_folder)
+    drivers_files = nepi_drvs.getDriverFilesList(self.drivers_folder)
     need_update = self.drivers_files != drivers_files
     if need_update:
       nepi_msg.publishMsgInfo(self,"Need to Update Drv Database")
-      drvs_dict = nepi_drv.refreshDriversDict(self.drivers_param_folder,drvs_dict)
+      drvs_dict = nepi_drvs.refreshDriversDict(self.drivers_param_folder,drvs_dict)
     #nepi_msg.publishMsgWarn(self,"Drivers Dict Keys: " + str(drvs_dict.keys()))
     #ln = sys._getframe().f_lineno ; self.printND('Info',ln)
     self.drivers_files = drivers_files
@@ -226,7 +212,7 @@ class ONVIFMgr:
         active = True
       drvs_dict[drv_name]['active'] = active
     self.drvs_dict = drvs_dict
-    active_drvs_dict = nepi_drv.getDriversByActive(self.drvs_dict)
+    active_drvs_dict = nepi_drvs.getDriversByActive(self.drvs_dict)
     #nepi_msg.publishMsgWarn(self,"Active Drivers Dict Keys: " + str(active_drvs_dict.keys()))
     idx_drivers_dict = dict()
     ptx_drivers_dict = dict()
@@ -520,6 +506,7 @@ class ONVIFMgr:
           'ptx_subproc' : None,
           'ptx_node_name': None,
           'connectable' : False,
+          'launch_time' : nepi_ros.get_time()
         }
         # Now determine if it has a config struct
         self.detected_onvifs[uuid]['config'] = self.configured_onvifs[uuid] if uuid in self.configured_onvifs else None
@@ -531,7 +518,6 @@ class ONVIFMgr:
             nepi_msg.publishMsgInfo(self,'Connected to device '  + str(uuid) + ' at ' + hostname + ':' + str(port) + ' via configured credentials')
 
     lost_onvifs = []
-    extra_start_delay = 0
     for uuid in self.detected_onvifs:
       detected_onvif = self.detected_onvifs[uuid]
       # Now look for services we've previously detected but are now lost
@@ -580,12 +566,17 @@ class ONVIFMgr:
       needs_ptx_start = (detected_onvif['ptz'] is True) and (detected_onvif['ptx_subproc'] is None) and \
                         (detected_onvif['config'] is not None) and ('ptx_enabled' in detected_onvif['config']) and \
                         (detected_onvif['config']['ptx_enabled'] is True)
+
+      # Do start and restart checks
+      launch_time = self.detected_onvifs[uuid]['launch_time']       
+      cur_time = nepi_ros.get_time()             
       if needs_ptx_start:
         nepi_msg.publishMsgInfo(self,"PTX needs start " + str(needs_ptx_start) )
       # Check for restarts
-      elif (detected_onvif['ptx_node_name'] is not None) and (self.nodeIsRunning(detected_onvif['ptx_node_name']) is False):
-        nepi_msg.publishMsgWarn(self,'PTX node for ' + str(uuid) + ' Not running... will force restart')
-        needs_restart = True
+      elif (cur_time - launch_time) > self.NODE_LAUNCH_TIME_SEC: #Give nodes time to load
+        if (detected_onvif['ptx_node_name'] is not None) and (self.nodeIsRunning(detected_onvif['ptx_node_name']) is False):
+          nepi_msg.publishMsgWarn(self,'PTX node for ' + str(uuid) + ' Not running... will force restart')
+          needs_restart = True
       '''
       nepi_msg.publishMsgWarn(self,"*******************************************")
       nepi_msg.publishMsgWarn(self,"PTX entry" + str(uuid) )
@@ -602,7 +593,6 @@ class ONVIFMgr:
         self.startNodesForDevice(uuid=uuid, start_idx = needs_idx_start, start_ptx = needs_ptx_start)
       if needs_restart is True:
         self.stopAndPurgeNodes(uuid)
-      extra_start_delay = 5 * int(needs_start) + 5 * int(needs_restart) + 10 * int(needs_restart)
     # Finally, purge lost device from our set... can't do it in the detection loop above because it would modify the object 
     # that is being iterated over; throws exception.
     for uuid in lost_onvifs:
@@ -615,8 +605,7 @@ class ONVIFMgr:
     self.status_pub.publish(status_msg)
 
     # And now that we are finished, start a timer for the drvt runDiscovery()
-    delay = self.discovery_interval_s + extra_start_delay
-    nepi_ros.timer(nepi_ros.ros_duration(delay), self.runDiscovery, oneshot=True)
+    nepi_ros.timer(nepi_ros.ros_duration(self.discovery_interval), self.runDiscovery, oneshot=True)
 
   def attemptONVIFConnection(self, uuid):
     if uuid not in self.detected_onvifs:
@@ -640,15 +629,16 @@ class ONVIFMgr:
     try:
       dev_info = soapGetDeviceInformation(hostname, str(port), username, password)
       soapSyncSystemDateAndTime(hostname, str(port), username, password)
-      #nepi_msg.publishMsgInfo(self,'Connected to device '  + str(uuid) + ' at ' + hostname + ':' + str(port) + ' via configured credentials')
+      nepi_msg.publishMsgInfo(self,'Connected to device '  + str(uuid) + ' at ' + hostname + ':' + str(port) + ' via configured credentials')
     except Exception as e:
       return False
-    
+   
     self.detected_onvifs[uuid]['manufacturer'] = dev_info["Manufacturer"]
     self.detected_onvifs[uuid]['model'] = dev_info["Model"]
     self.detected_onvifs[uuid]['firmware_version'] = dev_info["FirmwareVersion"]
     self.detected_onvifs[uuid]['hardware_id'] = dev_info["HardwareId"]
     self.detected_onvifs[uuid]['serial_num'] = dev_info["SerialNumber"]
+
 
     return True    
 
@@ -688,7 +678,7 @@ class ONVIFMgr:
         self.overrideConnectionParams(fully_qualified_node_name, username, password, hostname, port, config['idx_driver'])
         # And try to launch the node
         nepi_msg.publishMsgInfo(self,'Launching node ' + ros_node_name + ' with file ' + file_name + ' for uuid ' + str(uuid))
-        [success, msg, sub_process] = nepi_drv.launchDriverNode(file_name, ros_node_name)
+        [success, msg, sub_process] = nepi_drvs.launchDriverNode(file_name, ros_node_name)
         if success == True:
           nepi_msg.publishMsgInfo(self,'Launched driver node ' + ros_node_name )
           self.detected_onvifs[uuid]['idx_subproc'] = sub_process
@@ -711,14 +701,15 @@ class ONVIFMgr:
         nepi_ros.set_param(self,driver_param_name,drv_dict)
         self.overrideConnectionParams(fully_qualified_node_name, username, password, hostname, port, config['ptx_driver'])
         # And try to launch the node
+        self.detected_onvifs[uuid]['launch_time'] = nepi_ros.get_time()
         nepi_msg.publishMsgInfo(self,'Launching node ' + ros_node_name + ' with file ' + file_name + ' for uuid ' + str(uuid))
-        [success, msg, sub_process] = nepi_drv.launchDriverNode(file_name, ros_node_name)
+        [success, msg, sub_process] = nepi_drvs.launchDriverNode(file_name, ros_node_name)
         if success == True:
           nepi_msg.publishMsgInfo(self,'Launched driver node ' + ros_node_name )
           self.detected_onvifs[uuid]['ptx_subproc'] = sub_process
           self.detected_onvifs[uuid]['ptx_node_name'] = ros_node_name
         else:
-          nepi_msg.publishMsgWarn(self,'Failed to launch driver node ' + ros_node_name )
+          nepi_msg.publishMsgWarn(self,'Failed to launch driver node ' + ros_node_name + ' with msg: ' + str(msg))
       else:
         nepi_msg.publishMsgWarn(self,'Failed to find driver ' + driver_name + ' for launch driver node ' + ros_node_name )
 
