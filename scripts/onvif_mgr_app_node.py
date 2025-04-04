@@ -31,7 +31,7 @@ import requests
 from xml.etree import ElementTree as ET
 
 # DON'T USE SaveCfgIF IN THIS CLASS -- SEE WARNING BELOW
-#from nepi_sdk.save_cfg_if import SaveCfgIF
+#from nepi_api.sys_if_save_cfg import SaveCfgIF
 
 from nepi_sdk import nepi_ros
 from nepi_sdk import nepi_msg
@@ -61,11 +61,13 @@ class ONVIFMgr:
   WSDL_FOLDER = os.path.join(DEFAULT_NEPI_CONFIG_PATH, "onvif/wsdl/")
 
  
-  DEFAULT_DISCOVERY_INTERVAL_S = 5
+  DEFAULT_DISCOVERY_INTERVAL_SEC = 5
   
   ONVIF_SCOPE_NVT_ID = 'Network_Video_Transmitter'
   ONVIF_SCOPE_NVT_ALT_ID = 'NetworkVideoTransmitter' # ONVIF spec. says this name is legal for NVT, too
   ONVIF_SCOPE_PTZ_ID = 'ptz'
+
+  discovery_interval = DEFAULT_DISCOVERY_INTERVAL_SEC
 
   device_name_dict = dict()
   drvs_dict = dict()
@@ -119,7 +121,7 @@ class ONVIFMgr:
     nepi_msg.publishMsgInfo(self,"Driver install packages folder files " + str(self.drivers_install_files))  
     
     
-    self.discovery_interval_s = nepi_ros.get_param(self,'~discovery_interval_s', self.DEFAULT_DISCOVERY_INTERVAL_S)
+    self.discovery_interval = nepi_ros.get_param(self,'~discovery_interval', self.DEFAULT_DISCOVERY_INTERVAL_SEC)
     self.autosave_cfg_changes = nepi_ros.get_param(self,'~autosave_cfg_changes', True)
 
     self.init_clear_disc = nepi_ros.get_param(self,"~clear_discovery",False)
@@ -157,7 +159,7 @@ class ONVIFMgr:
     
     # This WARNING extends to topics that are part of an included interface (e.g., SaveCfgIF) -- 
     # can't use those interfaces, instead must manage config. file saving ourselves!
-    # self.save_cfg_if = SaveCfgIF(updateParamsCallback=self.setCurrentSettingsAsDefault, paramsModifiedCallback=self.updateFromParamServer)
+    # self.save_cfg_if = SaveCfgIF(initCb=self.setCurrentSettingsAsDefault, resetCb=self.resetCb)
     #### END WARNING ####
 
     rospy.Service('~set_device_cfg', OnvifDeviceCfgUpdate, self.updateDeviceCfgHandler)
@@ -173,7 +175,7 @@ class ONVIFMgr:
     # Must handle our own store params rather than offloading to SaveCfgIF per WARNING above
     self.store_params_publisher = rospy.Publisher('store_params', String, queue_size=1)
 
-    nepi_ros.timer(nepi_ros.ros_duration(self.discovery_interval_s), self.runDiscovery, oneshot=True)
+    nepi_ros.timer(nepi_ros.ros_duration(self.discovery_interval), self.runDiscovery, oneshot=True)
     #########################################################
     ## Initiation Complete
     nepi_msg.publishMsgInfo(self,"Initialization Complete")
@@ -786,12 +788,12 @@ class ONVIFMgr:
     #rosparam.load_file(filename = full_path_config_file, default_namespace = node_namespace)
 
   def setCurrentSettingsAsDefault(self):
-    nepi_ros.set_param(self,'~discovery_interval_s', self.discovery_interval_s)
+    nepi_ros.set_param(self,'~discovery_interval', self.discovery_interval)
     nepi_ros.set_param(self,'autosave_cfg_changes', self.autosave_cfg_changes)
     nepi_ros.set_param(self,'~onvif_devices', self.configured_onvifs)
   
-  def updateFromParamServer(self):
-    self.discovery_interval_s = nepi_ros.get_param(self,'~discovery_interval_s', DEFAULT_DISCOVERY_INTERVAL_S)
+  def resetCb(self):
+    self.discovery_interval = nepi_ros.get_param(self,'~discovery_interval', DEFAULT_DISCOVERY_INTERVAL_SEC)
     self.autosave_cfg_changes = nepi_ros.get_param(self,'~autosave_cfg_changes', self.autosave_cfg_changes)
     self.configured_onvifs = nepi_ros.get_param(self,'~onvif_devices', self.configured_onvifs)
 
