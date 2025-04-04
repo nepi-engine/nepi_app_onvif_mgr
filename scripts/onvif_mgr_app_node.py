@@ -645,6 +645,7 @@ class ONVIFMgr:
     return True    
 
   def startNodesForDevice(self, uuid, start_idx, start_ptx):
+    nepi_msg.publishMsgWarn(self,'Starting node launch for ' + str(uuid))
     if uuid not in self.detected_onvifs:
       nepi_msg.publishMsgWarn(self,"Can't start nodes for undetected device... ignoring")
       return False 
@@ -669,8 +670,14 @@ class ONVIFMgr:
     self.device_name_dict[uuid] = device_name
     ros_node_name = config['node_base_name'] + '_camera_' + identifier
     if start_idx is True:
+      nepi_msg.publishMsgWarn(self,'Starting IDX Onvif Node for host' + str(hostname))
       driver_name = self.configured_onvifs[uuid]['idx_driver']
-      if driver_name in self.drvs_dict.keys():
+      if driver_name not in self.drvs_dict.keys():
+        #nepi_msg.publishMsgWarn(self,'Cant find driver for IDX Onvif Node for host' + str(hostname) + " " + str( driver_name) + " in dict " + str(self.drivers_dict))
+        nepi_msg.publishMsgWarn(self,'Failed to find driver ' + driver_name + ' for launch driver node ' + ros_node_name )
+        nepi_msg.publishMsgWarn(self,'Driver Dict keys: ' + str(self.drvs_dict.keys()) ) 
+      else:
+        nepi_msg.publishMsgWarn(self,'Found Driver for IDX Onvif Node host' + str(hostname))
         file_name = self.drvs_dict[driver_name]['NODE_DICT']['file_name']
         fully_qualified_node_name = self.base_namespace + ros_node_name
         self.checkLoadConfigFile(node_namespace=fully_qualified_node_name)
@@ -687,9 +694,8 @@ class ONVIFMgr:
           self.detected_onvifs[uuid]['idx_node_name'] = ros_node_name
         else:
           nepi_msg.publishMsgWarn(self,'Failed to launch driver node ' + ros_node_name )
-      else:
-        nepi_msg.publishMsgWarn(self,'Failed to find driver ' + driver_name + ' for launch driver node ' + ros_node_name )
-        nepi_msg.publishMsgWarn(self,'Driver Dict keys: ' + str(self.drvs_dict.keys()) )
+
+
 
     if start_ptx is True:
       driver_name = self.configured_onvifs[uuid]['ptx_driver']
