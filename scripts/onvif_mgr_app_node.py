@@ -106,7 +106,7 @@ class ONVIFMgr:
     self.msg_if.pub_info("Calling system drivers folder query service " + get_folder_name_service)
     try:
         self.msg_if.pub_info("Getting drivers folder query service " + get_folder_name_service)
-        folder_query_service = rospy.ServiceProxy(get_folder_name_service, SystemStorageFolderQuery)
+        folder_query_service = nepi_ros.connect_service(get_folder_name_service, SystemStorageFolderQuery)
     except Exception as e:
       self.msg_if.pub_warn("Failed to obtain system folder service " + str(e))
     try:
