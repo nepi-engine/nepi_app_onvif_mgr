@@ -49,7 +49,7 @@ from nepi_app_onvif_mgr.srv import OnvifDeviceCfgDelete, OnvifDeviceCfgDeleteRes
 from nepi_app_onvif_mgr.srv import OnvifDriverListQuery, OnvifDriverListQueryResponse
 
 from nepi_api.node_if import NodeClassIF
-from nepi_api.sys_if_msg import MsgIF
+from nepi_api.messages_if import MsgIF
 
 MGR_NAME = 'ONVIF Manager' # Use in display menus
 FILE_TYPE = 'MANAGER'
