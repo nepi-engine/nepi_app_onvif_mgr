@@ -16,8 +16,7 @@
 # - mailto:nepi@numurus.com
 #
 import os
-#NEPI_BASE_NAMESPACE = '/nepi/s2x/'
-#os.environ["ROS_NAMESPACE"] = NEPI_BASE_NAMESPACE[0:-1]
+
 import rospy
 import sys
 import subprocess
@@ -35,7 +34,6 @@ from xml.etree import ElementTree as ET
 
 from nepi_sdk import nepi_ros
 from nepi_sdk import nepi_utils
-from nepi_sdk import nepi_msg
 from nepi_sdk import nepi_drvs
 
 from std_msgs.msg import String, Bool
