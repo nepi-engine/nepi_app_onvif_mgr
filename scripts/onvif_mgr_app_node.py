@@ -16,7 +16,6 @@
 # - mailto:nepi@numurus.com
 #
 import os
-
 import rospy
 import sys
 import subprocess
