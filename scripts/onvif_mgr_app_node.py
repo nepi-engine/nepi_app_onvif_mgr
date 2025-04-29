@@ -62,7 +62,7 @@ class ONVIFMgr:
   WSDL_FOLDER = os.path.join(DEFAULT_NEPI_CONFIG_PATH, "onvif/wsdl/")
 
  
-  DEFAULT_DISCOVERY_INTERVAL_SEC = 5
+  DEFAULT_DISCOVERY_INTERVAL_SEC = 5.0
   
   ONVIF_SCOPE_NVT_ID = 'Network_Video_Transmitter'
   ONVIF_SCOPE_NVT_ALT_ID = 'NetworkVideoTransmitter' # ONVIF spec. says this name is legal for NVT, too
@@ -128,18 +128,18 @@ class ONVIFMgr:
     self.msg_if.pub_info("Driver install packages folder files " + str(self.drivers_install_files))  
     
     
-    self.discovery_interval = nepi_ros.get_param(self,'~discovery_interval', self.DEFAULT_DISCOVERY_INTERVAL_SEC)
-    self.autosave_cfg_changes = nepi_ros.get_param(self,'~autosave_cfg_changes', True)
+    self.discovery_interval = nepi_ros.get_param('~discovery_interval')
+    self.autosave_cfg_changes = nepi_ros.get_param('~autosave_cfg_changes', True)
 
-    self.init_clear_disc = nepi_ros.get_param(self,"~clear_discovery",False)
-    nepi_ros.get_param(self,"~clear_discovery",self.init_clear_disc)
+    self.init_clear_disc = nepi_ros.get_param('~clear_discovery',False)
+    nepi_ros.get_param('~clear_discovery',self.init_clear_disc)
     self.detected_onvifs = {}
 
     self.wsd = WSDiscovery()
     self.wsd.start()
     detected_services = self.wsd.searchServices(timeout=1)
 
-    self.configured_onvifs = nepi_ros.get_param(self,'~onvif_devices', {})
+    self.configured_onvifs = nepi_ros.get_param('~onvif_devices', {})
     self.msg_if.pub_info("Starting device dict from param server: " + str(self.configured_onvifs) )
     # Get drv drivers database
     drvs_dict = nepi_drvs.getDriversDict(self.drivers_folder)
@@ -182,7 +182,7 @@ class ONVIFMgr:
     # Must handle our own store params rather than offloading to SaveCfgIF per WARNING above
     self.store_params_publisher = rospy.Publisher('store_params', String, queue_size=1)
 
-    nepi_ros.timer(nepi_ros.ros_duration(self.discovery_interval), self.runDiscovery, oneshot=True)
+    nepi_ros.start_timer_process(rospy.Duration(self.discovery_interval), self.runDiscovery, oneshot=True)
     #########################################################
     ## Initiation Complete
     self.msg_if.pub_info("Initialization Complete")
@@ -195,7 +195,7 @@ class ONVIFMgr:
 
   def clearDiscCb(self,msg):
     clear = msg.data
-    nepi_ros.set_param(self,"~clear_discovery",clear)
+    nepi_ros.set_param('~clear_discovery',clear)
     if self.autosave_cfg_changes is True:
       self.msg_if.pub_info('Auto-saving updated config')
       self.setCurrentSettingsAsDefault()
@@ -288,7 +288,7 @@ class ONVIFMgr:
       'ptx_drv_dict': ptx_drv_dict
     }
     self.configured_onvifs[uuid] = updated_cfg
-    nepi_ros.set_param(self,'~onvif_devices', self.configured_onvifs)
+    nepi_ros.set_param('~onvif_devices', self.configured_onvifs)
     # Now remove the device from the list of detected devices so that it can be rediscovered and properly connected and nodes launched
     # using this updated config. If nodes are already running, stop them (to restart as newly-configured) and warn user
     if detected_device:
@@ -315,7 +315,7 @@ class ONVIFMgr:
       return OnvifDeviceCfgDeleteResponse(success = False)
     
     self.configured_onvifs.pop(uuid)
-    nepi_ros.set_param(self,'~onvif_devices', self.configured_onvifs)
+    nepi_ros.set_param('~onvif_devices', self.configured_onvifs)
     # And clean it up if this device is currently detected and running
     if uuid in self.detected_onvifs:
       self.stopAndPurgeNodes(uuid)
@@ -442,7 +442,7 @@ class ONVIFMgr:
     #self.msg_if.pub_warn('Debug: running discovery')
 
     # Some devices only respond once to discovery
-    clear_disc = nepi_ros.get_param(self,"~clear_discovery",self.init_clear_disc)
+    clear_disc = nepi_ros.get_param('~clear_discovery',self.init_clear_disc)
     if clear_disc:
       self.wsd.clearRemoteServices()
     detected_services = self.wsd.searchServices(timeout=1)
@@ -615,7 +615,7 @@ class ONVIFMgr:
     self.status_pub.publish(status_msg)
 
     # And now that we are finished, start a timer for the drvt runDiscovery()
-    nepi_ros.timer(nepi_ros.ros_duration(self.discovery_interval), self.runDiscovery, oneshot=True)
+    nepi_ros.start_timer_process(self.discovery_interval, self.runDiscovery, oneshot=True)
 
   def attemptONVIFConnection(self, uuid):
     if uuid not in self.detected_onvifs:
@@ -800,14 +800,14 @@ class ONVIFMgr:
     #rosparam.load_file(filename = full_path_config_file, default_namespace = node_namespace)
 
   def setCurrentSettingsAsDefault(self):
-    nepi_ros.set_param(self,'~discovery_interval', self.discovery_interval)
+    nepi_ros.set_param('~discovery_interval', self.discovery_interval)
     nepi_ros.set_param(self,'autosave_cfg_changes', self.autosave_cfg_changes)
-    nepi_ros.set_param(self,'~onvif_devices', self.configured_onvifs)
+    nepi_ros.set_param('~onvif_devices', self.configured_onvifs)
   
   def resetCb(self):
-    self.discovery_interval = nepi_ros.get_param(self,'~discovery_interval', DEFAULT_DISCOVERY_INTERVAL_SEC)
-    self.autosave_cfg_changes = nepi_ros.get_param(self,'~autosave_cfg_changes', self.autosave_cfg_changes)
-    self.configured_onvifs = nepi_ros.get_param(self,'~onvif_devices', self.configured_onvifs)
+    self.discovery_interval = nepi_ros.get_param('~discovery_interval', DEFAULT_DISCOVERY_INTERVAL_SEC)
+    self.autosave_cfg_changes = nepi_ros.get_param('~autosave_cfg_changes', self.autosave_cfg_changes)
+    self.configured_onvifs = nepi_ros.get_param('~onvif_devices', self.configured_onvifs)
 
 
   #######################
