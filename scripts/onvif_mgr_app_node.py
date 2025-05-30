@@ -208,7 +208,7 @@ class ONVIFMgr:
     need_update = self.drivers_files != drivers_files
     if need_update:
       self.msg_if.pub_info("Need to Update Drv Database")
-      drvs_dict = nepi_drvs.refreshDriversDict(self.drivers_param_folder,drvs_dict)
+      drvs_dict = nepi_drvs.refreshDriversDict(self.drivers_folder,drvs_dict)
     #self.msg_if.pub_warn("Drivers Dict Keys: " + str(drvs_dict.keys()))
     #ln = sys._getframe().f_lineno ; self.printND('Info',ln)
     self.drivers_files = drivers_files
