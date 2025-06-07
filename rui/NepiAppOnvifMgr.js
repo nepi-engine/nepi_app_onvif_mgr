@@ -92,7 +92,7 @@ class OnvifMgr extends Component {
         if (ready === true){
           const resp = await this.props.ros.callService({
             name: "app_onvif_mgr/device_list_query",
-            messageType: "nepi_ros_interfaces/OnvifDeviceListQuery",
+            messageType: "nepi_sdk_interfaces/OnvifDeviceListQuery",
           })
 
           this.onvifDeviceStatuses = resp['device_statuses']
@@ -118,7 +118,7 @@ class OnvifMgr extends Component {
       if (ready === true){
         const resp = await this.props.ros.callService({
           name: "app_onvif_mgr/driver_list_query",
-          messageType: "nepi_ros_interfaces/OnvifDriverListQuery"
+          messageType: "nepi_sdk_interfaces/OnvifDriverListQuery"
         })
 
         this.onvifIDXDeviceDrivers = resp['idx_drivers']
@@ -141,7 +141,7 @@ class OnvifMgr extends Component {
    async onOnvifDeviceCfgUpdate(updatedDeviceCfg) {
     await this.props.ros.callService({
       name: "app_onvif_mgr/set_device_cfg",
-      messageType: "nepi_ros_interfaces/OnvifDeviceCfgUpdate",
+      messageType: "nepi_sdk_interfaces/OnvifDeviceCfgUpdate",
       args: {cfg : updatedDeviceCfg}
     })
   }
@@ -150,7 +150,7 @@ class OnvifMgr extends Component {
   async onOnvifDeviceCfgDelete(uuid) {
     await this.props.ros.callService({
       name: "app_onvif_mgr/delete_device_cfg",
-      messageType: "nepi_ros_interfaces/OnvifDeviceCfgDelete",
+      messageType: "nepi_sdk_interfaces/OnvifDeviceCfgDelete",
       args: {device_uuid : uuid}
     })
   }
