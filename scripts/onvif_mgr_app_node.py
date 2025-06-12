@@ -175,7 +175,7 @@ class ONVIFMgr:
     rospy.Service('~resync_onvif_device_clocks', Empty, self.resyncOnvifDeviceClocks)
     rospy.Service('~driver_list_query', OnvifDriverListQuery, self.provideDeviceDriverList)
     time.sleep(1)
-    rospy.Subscriber('~allow_discovery_clearing', Bool, self.clearDiscCb, queue_size = 10)
+    rospy.Subscriber('~allow_discovery_clearing', Bool, self.clearDiscCb, _queue_size = 10)
 
     self.status_pub = rospy.Publisher('~status', OnvifStatus, queue_size=1)
     
