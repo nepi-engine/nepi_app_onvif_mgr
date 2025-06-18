@@ -37,8 +37,8 @@ from nepi_sdk import nepi_drvs
 
 from std_msgs.msg import String, Bool
 from std_srvs.srv import Empty, EmptyResponse
-from nepi_sdk_interfaces.msg import DriversStatus
-from nepi_sdk_interfaces.srv import SystemStorageFolderQuery
+from nepi_interfaces.msg import DriversStatus
+from nepi_interfaces.srv import SystemStorageFolderQuery
 from nepi_app_onvif_mgr.msg import OnvifStatus, OnvifDeviceCfg, OnvifDeviceStatus
 from nepi_app_onvif_mgr.srv import OnvifDeviceListQuery, OnvifDeviceListQueryResponse
 from nepi_app_onvif_mgr.srv import OnvifDeviceCfgUpdate, OnvifDeviceCfgUpdateResponse
