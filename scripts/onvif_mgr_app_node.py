@@ -37,7 +37,7 @@ from nepi_sdk import nepi_drvs
 
 from std_msgs.msg import String, Bool
 from std_srvs.srv import Empty, EmptyResponse
-from nepi_interfaces.msg import DriversStatus
+from nepi_interfaces.msg import MgrDriversStatus
 from nepi_interfaces.srv import SystemStorageFolderQuery
 from nepi_app_onvif_mgr.msg import OnvifStatus, OnvifDeviceCfg, OnvifDeviceStatus
 from nepi_app_onvif_mgr.srv import OnvifDeviceListQuery, OnvifDeviceListQueryResponse
@@ -148,7 +148,7 @@ class ONVIFMgr:
     NEPI_DRIVERS_STATUS_TOPIC = self.base_namespace + 'drivers_mgr/status'
     self.msg_if.pub_info('Waiting for driver_mgr status message: ' +  NEPI_DRIVERS_STATUS_TOPIC)
     nepi_sdk.wait_for_topic(NEPI_DRIVERS_STATUS_TOPIC)
-    rospy.Subscriber(NEPI_DRIVERS_STATUS_TOPIC, DriversStatus, self.driversStatusCb)
+    rospy.Subscriber(NEPI_DRIVERS_STATUS_TOPIC, MgrDriversStatus, self.driversStatusCb)
     #self.msg_if.pub_info('Waiting for active drivers list')
     #while (len(self.active_drivers_list) == 0) and not nepi_sdk.is_shutdown():
       #time.sleep(1)
