@@ -68,6 +68,8 @@ class ONVIFMgr:
   ONVIF_SCOPE_NVT_ALT_ID = 'NetworkVideoTransmitter' # ONVIF spec. says this name is legal for NVT, too
   ONVIF_SCOPE_PTZ_ID = 'ptz'
 
+  node_if = None
+
   discovery_interval = DEFAULT_DISCOVERY_INTERVAL_SEC
 
   device_name_dict = dict()
