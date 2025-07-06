@@ -33,26 +33,23 @@ from xml.etree import ElementTree as ET
 
 from nepi_sdk import nepi_sdk
 from nepi_sdk import nepi_utils
+from nepi_sdk import nepi_system
 from nepi_sdk import nepi_drvs
 
 from std_msgs.msg import String, Bool
 from std_srvs.srv import Empty, EmptyResponse
 from nepi_interfaces.msg import MgrDriversStatus
-from nepi_interfaces.srv import SystemStorageFolderQuery
 from nepi_app_onvif_mgr.msg import OnvifStatus, OnvifDeviceCfg, OnvifDeviceStatus
-from nepi_app_onvif_mgr.srv import OnvifDeviceListQuery, OnvifDeviceListQueryResponse
-from nepi_app_onvif_mgr.srv import OnvifDeviceCfgUpdate, OnvifDeviceCfgUpdateResponse
-from nepi_app_onvif_mgr.srv import OnvifDeviceCfgDelete, OnvifDeviceCfgDeleteResponse
-from nepi_app_onvif_mgr.srv import OnvifDriverListQuery, OnvifDriverListQueryResponse
+from nepi_app_onvif_mgr.srv import OnvifDeviceListQuery, OnvifDeviceListQueryRequest, OnvifDeviceListQueryResponse
+from nepi_app_onvif_mgr.srv import OnvifDeviceCfgUpdate, OnvifDeviceCfgUpdateRequest, OnvifDeviceCfgUpdateResponse
+from nepi_app_onvif_mgr.srv import OnvifDeviceCfgDelete, OnvifDeviceCfgUpdateRequest, OnvifDeviceCfgUpdateResponse
+from nepi_app_onvif_mgr.srv import OnvifDriverListQuery, OnvifDriverListQueryRequest, OnvifDriverListQueryResponse
 
 from nepi_api.node_if import NodeClassIF
 from nepi_api.messages_if import MsgIF
 
 MGR_NAME = 'ONVIF Manager' # Use in display menus
 FILE_TYPE = 'MANAGER'
-
-DRIVERS_FOLDER = '/opt/nepi/ros/lib/nepi_drivers'
-
 
 class ONVIFMgr:
 
@@ -71,6 +68,9 @@ class ONVIFMgr:
   node_if = None
 
   discovery_interval = DEFAULT_DISCOVERY_INTERVAL_SEC
+  autosave_cfg_changes = True
+  init_clear_disc = False
+  configured_onvifs = dict()
 
   device_name_dict = dict()
   drvs_dict = dict()
@@ -96,95 +96,199 @@ class ONVIFMgr:
     self.msg_if = MsgIF(log_name = self.class_name)
     self.msg_if.pub_info("Starting IF Initialization Processes")
 
-    ##############################     
 
-    # Get driver folder paths
-    get_folder_name_service = self.base_namespace + 'system_storage_folder_query'
-    self.msg_if.pub_info("Waiting for system folder query service " + get_folder_name_service)
-    rospy.wait_for_service(get_folder_name_service)
-    self.msg_if.pub_info("Calling system drivers folder query service " + get_folder_name_service)
-    try:
-        self.msg_if.pub_info("Getting drivers folder query service " + get_folder_name_service)
-        folder_query_service = nepi_sdk.connect_service(get_folder_name_service, SystemStorageFolderQuery)
-    except Exception as e:
-        self.msg_if.pub_warn("Failed to obtain system folder service " + str(e))
-    try:
-        response = folder_query_service('drivers')
-        self.msg_if.pub_info("Got storage folder path" + response.folder_path)
-        time.sleep(1)
-        self.drivers_folder = response.folder_path
-    except Exception as e:
-        self.drivers_folder = DRIVERS_FOLDER
-        self.msg_if.pub_warn("Failed to obtain system drivers folder, falling back to: " + DRIVERS_FOLDER + " " + str(e))
-    if os.path.exists(self.drivers_folder) == False:
-        self.drivers_folder = ""
-    self.drivers_folder = self.drivers_folder
-    self.msg_if.pub_info("Driver folder set to " + self.drivers_folder)
+    ##############################
+    # Get for System Folders
+    self.msg_if.pub_info("Waiting for system folders")
+    system_folders = nepi_system.get_system_folders(log_name_list = [self.node_name])
+    #self.msg_if.pub_warn("Got system folders: " + str(system_folders))
+
+    self.drivers_folder = system_folders['drivers_lib']
+    self.msg_if.pub_info("Using Drivers Folder: " + str(self.drivers_folder))
 
     self.drvs_dict = nepi_drvs.getDriversDict(self.drivers_folder)
     self.msg_if.pub_info("Init Drivers Dict keys " + str(self.drvs_dict.keys()))
     self.drivers_files = nepi_drvs.getDriverFilesList(self.drivers_folder)
-    #self.msg_if.pub_info("Driver folder files " + str(self.drivers_files))
-    self.msg_if.pub_info("Driver folder set to " + self.drivers_folder)
-    self.drivers_install_files = nepi_drvs.getDriverPackagesList(self.drivers_folder)
-    self.msg_if.pub_info("Driver install packages folder files " + str(self.drivers_install_files))  
     
-    
-    self.discovery_interval = nepi_sdk.get_param('~discovery_interval', self.DEFAULT_DISCOVERY_INTERVAL_SEC)
-    self.autosave_cfg_changes = nepi_sdk.get_param('~autosave_cfg_changes', True)
-
-    self.init_clear_disc = nepi_sdk.get_param('~clear_discovery',False)
-    nepi_sdk.get_param('~clear_discovery',self.init_clear_disc)
-    self.detected_onvifs = {}
-
+    ############
+    # start onvif discovery process
     self.wsd = WSDiscovery()
     self.wsd.start()
     detected_services = self.wsd.searchServices(timeout=1)
+    
+        
+    ##############################
+    # Initialize Class Variables
+    drivers_mgr_status = nepi_sdk.create_namespace(this.base_namespace,'drivers_mgr/status')
 
-    self.configured_onvifs = nepi_sdk.get_param('~onvif_devices', {})
+    self.detected_onvifs = {}
+    
     self.msg_if.pub_info("Starting device dict from param server: " + str(self.configured_onvifs) )
     # Get drv drivers database
     drvs_dict = nepi_drvs.getDriversDict(self.drivers_folder)
     self.drivers_files = nepi_drvs.getDriverFilesList(self.drivers_folder)
-    # Get active drivers list from nepi_mgr_drivers
-    NEPI_DRIVERS_STATUS_TOPIC = self.base_namespace + 'drivers_mgr/status'
-    self.msg_if.pub_info('Waiting for driver_mgr status message: ' +  NEPI_DRIVERS_STATUS_TOPIC)
-    nepi_sdk.wait_for_topic(NEPI_DRIVERS_STATUS_TOPIC)
-    rospy.Subscriber(NEPI_DRIVERS_STATUS_TOPIC, MgrDriversStatus, self.driversStatusCb)
-    #self.msg_if.pub_info('Waiting for active drivers list')
-    #while (len(self.active_drivers_list) == 0) and not nepi_sdk.is_shutdown():
-      #time.sleep(1)
 
 
-    # Iterate through these configured devices fixing invalid characters in the node base name
-    for uuid in self.configured_onvifs:
-      self.configured_onvifs[uuid]['node_base_name'] = self.configured_onvifs[uuid]['node_base_name'].replace(' ','_').replace('-','_')
+
+    self.initCb(do_updates = False)
+    ##############################
+    ### Setup Node
+
 
     #### WARNING ####
     # Do not use topics in this class, only services... somehow just the execution of any subscriber
     # callback breaks the ONVIF discovery mechanism, even if the callback does nothing at all and 
     # even if the WSDiscovery object is destroyed and recreated afterwards. Very weird, but very repeatable.
-    #rospy.Subscriber('~set_device_cfg', OnvifDeviceCfg, self.setDeviceCfgHandler, queue_size=5)
     
     # This WARNING extends to topics that are part of an included interface (e.g., SaveCfgIF) -- 
     # can't use those interfaces, instead must manage config. file saving ourselves!
     # self.save_cfg_if = SaveCfgIF(initCb=self.setCurrentSettingsAsDefault, resetCb=self.resetCb)
     #### END WARNING ####
 
-    rospy.Service('~set_device_cfg', OnvifDeviceCfgUpdate, self.updateDeviceCfgHandler)
-    rospy.Service('~delete_device_cfg', OnvifDeviceCfgDelete, self.deleteDeviceCfgHandler)
-    rospy.Service('~device_list_query', OnvifDeviceListQuery, self.provideDeviceList)
-    rospy.Service('~resync_onvif_device_clocks', Empty, self.resyncOnvifDeviceClocks)
-    rospy.Service('~driver_list_query', OnvifDriverListQuery, self.provideDeviceDriverList)
-    time.sleep(1)
-    rospy.Subscriber('~allow_discovery_clearing', Bool, self.clearDiscCb, queue_size = 10)
 
-    self.status_pub = rospy.Publisher('~status', OnvifStatus, queue_size=1)
-    
+    # Configs Config Dict ####################
+    self.CFGS_DICT = {
+        'init_callback': self.initCb,
+        'reset_callback': self.resetCb,
+        'factory_reset_callback': self.factoryResetCb,
+        'init_configs': True,
+        'namespace': self.node_namespace
+    }
+
+    # Params Config Dict ####################
+    self.PARAMS_DICT = {
+        'discovery_interval': {
+            'namespace': self.node_namespace,
+            'factory_val':  self.discovery_interval
+        },
+        'autosave_cfg_changes': {
+            'namespace': self.node_namespace,
+            'factory_val':  self.autosave_cfg_changes
+        },
+        'init_clear_disc': {
+            'namespace': self.node_namespace,
+            'factory_val':  self.init_clear_disc
+        },
+        'configured_onvifs': {
+            'namespace': self.node_namespace,
+            'factory_val':  self.configured_onvifs
+        },
+
+    }
+
+
+
+    # Services Config Dict ####################
+    self.SRVS_DICT = {
+        'set_device_cfg': {
+            'namespace': self.node_namespace,
+            'topic': 'set_device_cfg',
+            'srv': OnvifDeviceCfgUpdate,
+            'req': OnvifDeviceCfgUpdateRequest(),
+            'resp': OnvifDeviceCfgUpdateResponse(),
+            'callback': self.updateDeviceCfgHandler
+        },
+        'delete_device_cfg': {
+            'namespace': self.node_namespace,
+            'topic': 'delete_device_cfg',
+            'srv': OnvifDeviceCfgDelete,
+            'req': OnvifDeviceCfgDeleteRequest(),
+            'resp': OnvifDeviceCfgDeleteResponse(),
+            'callback': self.deleteDeviceCfgHandler
+        },
+        'device_list_query': {
+            'namespace': self.node_namespace,
+            'topic': 'device_list_query',
+            'srv': OnvifDeviceListQuery,
+            'req': OnvifDeviceListQueryRequest(),
+            'resp': OnvifDeviceListQueryResponse(),
+            'callback': self.provideDeviceList
+        },
+        'resync_onvif_device_clocks': {
+            'namespace': self.node_namespace,
+            'topic': 'resync_onvif_device_clocks',
+            'srv': Empty,
+            'req': Empty(),
+            'resp': Empty(),
+            'callback': self.resyncOnvifDeviceClocks
+        },
+        'driver_list_query': {
+            'namespace': self.node_namespace,
+            'topic': 'driver_list_query',
+            'srv': OnvifDriverListQuery,
+            'req': OnvifDriverListQueryRequest(),
+            'resp': OnvifDriverListQueryResponse(),
+            'callback': self.provideDeviceDriverList
+        }
+    }
+
+    # Publishers Config Dict ####################
+    self.PUBS_DICT = {
+        'status_pub': {
+            'namespace': self.node_namespace,
+            'topic': 'status',
+            'msg': OnvifStatus,
+            'qsize': 1,
+            'latch': True
+        }
+    }  
+
+
+    # Subscribers Config Dict ####################
+    self.SUBS_DICT = {
+        'allow_discovery_clearing': {
+            'namespace': self.node_namespace,
+            'topic': 'allow_discovery_clearing',
+            'msg': Bool,
+            'qsize': 10,
+            'callback': self.clearDiscCb, 
+            'callback_args': ()
+        },
+        'drivers_status': {
+            'namespace': drivers_mgr_status,
+            'topic': '',
+            'msg': BMgrDriversStatusool,
+            'qsize': 10,
+            'callback': self.MgrDriversStatus, 
+            'callback_args': ()
+        }
+    }
+
+
+
+
+    # Create Node Class ####################
+    self.node_if = NodeClassIF(
+                        configs_dict = self.CFGS_DICT,
+                        params_dict = self.PARAMS_DICT,
+                        services_dict = self.SRVS_DICT,
+                        pubs_dict = self.PUBS_DICT,
+                        subs_dict = self.SUBS_DICT,
+                      msg_if = self.msg_if
+    )
+
+    nepi_sdk.wait()
+
+    ###########################
+    # Initialize Params
+
+    self.initCb(do_updates = True)
+
+    ###########################
+        
+
+    ########################
+    # Complete init processes
+
+    # Iterate through these configured devices fixing invalid characters in the node base name
+    for uuid in self.configured_onvifs:
+      self.configured_onvifs[uuid]['node_base_name'] = self.configured_onvifs[uuid]['node_base_name'].replace(' ','_').replace('-','_')
+
     # Must handle our own store params rather than offloading to SaveCfgIF per WARNING above
     self.store_params_publisher = rospy.Publisher('store_params', String, queue_size=1)
 
-    nepi_sdk.start_timer_process(rospy.Duration(self.discovery_interval), self.runDiscovery, oneshot=True)
+    nepi_sdk.start_timer_process(self.discovery_interval, self.runDiscovery, oneshot=True)
+    nepi_sdk.start_timer_process(0.5, self.statusPublishCb)
     #########################################################
     ## Initiation Complete
     self.msg_if.pub_info("Initialization Complete")
@@ -195,9 +299,42 @@ class ONVIFMgr:
     #########################################################
 
 
+  def initCb(self,do_updates = False):
+      if self.node_if is not None:
+        self.discovery_interval = self.node_if.get_param('discovery_interval')
+        self.autosave_cfg_changes = self.node_if.get_param('autosave_cfg_changes')
+        self.init_clear_disc = self.node_if.get_param('clear_discovery')
+        self.configured_onvifs = self.node_if.get_param('onvif_devices')
+      if do_updates == True:
+        pass
+      self.publish_status(do_updates = do_updates)
+        
+
+  def resetCb(self,do_updates = True):
+      self.msg_if.pub_warn("Reseting")
+      if self.node_if is not None:
+        self.node_if.reset_params()
+      if do_updates == True:
+        pass
+      self.initCb(do_updates = True)
+
+
+  def factoryResetCb(self,do_updates = True):
+      self.msg_if.pub_warn("Factory Reseting")
+      if self.node_if is not None:
+        self.node_if.factory_reset_params()
+      if do_updates == True:
+        pass
+      self.initCb(do_updates = True)
+
+
+
+
+
   def clearDiscCb(self,msg):
     clear = msg.data
-    nepi_sdk.set_param('~clear_discovery',clear)
+    if node_if is not None:
+          self.node_if.set_param('clear_discovery',clear)
     if self.autosave_cfg_changes is True:
       self.msg_if.pub_info('Auto-saving updated config')
       self.setCurrentSettingsAsDefault()
@@ -290,7 +427,8 @@ class ONVIFMgr:
       'ptx_drv_dict': ptx_drv_dict
     }
     self.configured_onvifs[uuid] = updated_cfg
-    nepi_sdk.set_param('~onvif_devices', self.configured_onvifs)
+    if node_if is not None:
+      node_if.set_param('onvif_devices', self.configured_onvifs)
     # Now remove the device from the list of detected devices so that it can be rediscovered and properly connected and nodes launched
     # using this updated config. If nodes are already running, stop them (to restart as newly-configured) and warn user
     if detected_device:
@@ -317,7 +455,8 @@ class ONVIFMgr:
       return OnvifDeviceCfgDeleteResponse(success = False)
     
     self.configured_onvifs.pop(uuid)
-    nepi_sdk.set_param('~onvif_devices', self.configured_onvifs)
+    if node_if is not None:
+      node_if.set_param('onvif_devices', self.configured_onvifs)
     # And clean it up if this device is currently detected and running
     if uuid in self.detected_onvifs:
       self.stopAndPurgeNodes(uuid)
@@ -447,10 +586,11 @@ class ONVIFMgr:
     #self.msg_if.pub_warn('Debug: running discovery')
 
     # Some devices only respond once to discovery
-    clear_disc = nepi_sdk.get_param('~clear_discovery',self.init_clear_disc)
-    if clear_disc:
-      self.wsd.clearRemoteServices()
-    detected_services = self.wsd.searchServices(timeout=1)
+    if self.node_if is not None:
+      clear_disc = self.node_if.get_param('clear_discovery')
+      if clear_disc:
+        self.wsd.clearRemoteServices()
+      detected_services = self.wsd.searchServices(timeout=1)
 
 
     #self.msg_if.pub_warn('Detected services ' + str(detected_services))
@@ -697,7 +837,8 @@ class ONVIFMgr:
         self.checkLoadConfigFile(node_namespace=fully_qualified_node_name)
         drv_dict = self.configured_onvifs[uuid]['idx_drv_dict']
         driver_param_name = ros_node_name + "/drv_dict"
-        nepi_sdk.set_param(driver_param_name,drv_dict)
+        if node_if is not None:
+          self.node_if.set_param(driver_param_name,drv_dict)
         self.overrideConnectionParams(fully_qualified_node_name, username, password, hostname, port, config['idx_driver'])
         # And try to launch the node
         self.msg_if.pub_info('Launching node ' + ros_node_name + ' with file ' + file_name + ' for uuid ' + str(uuid))
@@ -718,7 +859,8 @@ class ONVIFMgr:
         self.checkLoadConfigFile(node_namespace=fully_qualified_node_name)
         drv_dict = self.configured_onvifs[uuid]['ptx_drv_dict']
         driver_param_name = ros_node_name + "/drv_dict"
-        nepi_sdk.set_param(driver_param_name,drv_dict)
+        if node_if is not None:
+          self.node_if.set_param(driver_param_name,drv_dict)
         self.overrideConnectionParams(fully_qualified_node_name, username, password, hostname, port, config['ptx_driver'])
         # And try to launch the node
         self.detected_onvifs[uuid]['launch_time'] = nepi_sdk.get_time()
@@ -736,11 +878,12 @@ class ONVIFMgr:
   def overrideConnectionParams(self, fully_qualified_node_name, username, password, hostname, port, driver_id):
     credentials_ns = fully_qualified_node_name + '/credentials/'
     network_ns = fully_qualified_node_name + '/network/'
-    nepi_sdk.set_param(credentials_ns + 'username', username)
-    nepi_sdk.set_param(credentials_ns + 'password', password)
-    nepi_sdk.set_param(network_ns + 'host', hostname)
-    nepi_sdk.set_param(network_ns + 'port', port)
-    nepi_sdk.set_param(fully_qualified_node_name + '/driver_id', str(driver_id))
+    if node_if is not None:
+        self.node_if.set_param(credentials_ns + 'username', username)
+        self.node_if.set_param(credentials_ns + 'password', password)
+        self.node_if.set_param(network_ns + 'host', hostname)
+        self.node_if.set_param(network_ns + 'port', port)
+        self.node_if.set_param(fully_qualified_node_name + '/driver_id', str(driver_id))
   
     
   def stopAndPurgeNodes(self, uuid):
@@ -806,14 +949,11 @@ class ONVIFMgr:
     #rosparam.load_file(filename = full_path_config_file, default_namespace = node_namespace)
 
   def setCurrentSettingsAsDefault(self):
-    nepi_sdk.set_param('~discovery_interval', self.discovery_interval)
-    nepi_sdk.set_param('~autosave_cfg_changes', self.autosave_cfg_changes)
-    nepi_sdk.set_param('~onvif_devices', self.configured_onvifs)
+    if self.node_if is not None
+      self.node_if.set_param('discovery_interval', self.discovery_interval)
+      self.node_if.set_param('autosave_cfg_changes', self.autosave_cfg_changes)
+      self.node_if.set_param('onvif_devices', self.configured_onvifs)
   
-  def resetCb(self):
-    self.discovery_interval = nepi_sdk.get_param('~discovery_interval', DEFAULT_DISCOVERY_INTERVAL_SEC)
-    self.autosave_cfg_changes = nepi_sdk.get_param('~autosave_cfg_changes', self.autosave_cfg_changes)
-    self.configured_onvifs = nepi_sdk.get_param('~onvif_devices', self.configured_onvifs)
 
 
   #######################
@@ -927,6 +1067,12 @@ def soapSyncSystemDateAndTime(globalip, globalport, username, password):
     soap_resp = requests.post(url, data=soap_env, headers=headers, timeout=30)
     #self.msg_if.pub_warn(Debug: Got back ' + str(soap_resp.text))
 
+
+
+  def statusPublishCb(self,timer):
+      self.publish_status()
+
+  def status_pub(self):
 
 
 if __name__ == '__main__':
