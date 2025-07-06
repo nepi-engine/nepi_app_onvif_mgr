@@ -949,7 +949,7 @@ class ONVIFMgr:
     #rosparam.load_file(filename = full_path_config_file, default_namespace = node_namespace)
 
   def setCurrentSettingsAsDefault(self):
-    if self.node_if is not None
+    if self.node_if is not None:
       self.node_if.set_param('discovery_interval', self.discovery_interval)
       self.node_if.set_param('autosave_cfg_changes', self.autosave_cfg_changes)
       self.node_if.set_param('onvif_devices', self.configured_onvifs)
