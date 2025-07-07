@@ -316,7 +316,7 @@ class ONVIFMgr:
         self.node_if.reset_params()
       if do_updates == True:
         pass
-      self.initCb(do_updates = True)
+      self.initCb(do_updates = do_updates)
 
 
   def factoryResetCb(self,do_updates = True):
@@ -325,7 +325,7 @@ class ONVIFMgr:
         self.node_if.factory_reset_params()
       if do_updates == True:
         pass
-      self.initCb(do_updates = True)
+      self.initCb(do_updates = do_updates)
 
 
 
