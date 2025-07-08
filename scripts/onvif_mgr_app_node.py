@@ -833,7 +833,7 @@ class ONVIFMgr:
       else:
         self.msg_if.pub_warn('Found Driver for IDX Onvif Node host' + str(hostname))
         file_name = self.drvs_dict[driver_name]['NODE_DICT']['file_name']
-        fully_qualified_node_name = self.base_namespace + ros_node_name
+        fully_qualified_node_name = nepi_sdk.create_namespace(self.base_namespace,ros_node_name)
         self.checkLoadConfigFile(node_namespace=fully_qualified_node_name)
         drv_dict = self.configured_onvifs[uuid]['idx_drv_dict']
         driver_param_name = ros_node_name + "/drv_dict"
@@ -855,7 +855,7 @@ class ONVIFMgr:
       if driver_name in self.drvs_dict.keys():
         file_name = self.drvs_dict[driver_name]['NODE_DICT']['file_name']
         ros_node_name = config['node_base_name'] + '_pan_tilt_' + identifier
-        fully_qualified_node_name = self.base_namespace + ros_node_name
+        fully_qualified_node_name = nepi_sdk.create_namespace(self.base_namespace,ros_node_name)
         self.checkLoadConfigFile(node_namespace=fully_qualified_node_name)
         drv_dict = self.configured_onvifs[uuid]['ptx_drv_dict']
         driver_param_name = ros_node_name + "/drv_dict"
