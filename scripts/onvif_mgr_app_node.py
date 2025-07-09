@@ -314,7 +314,7 @@ class ONVIFMgr:
   def resetCb(self,do_updates = True):
       self.msg_if.pub_warn("Reseting")
       if self.node_if is not None:
-        self.node_if.reset_params()
+        pass
       if do_updates == True:
         pass
       self.initCb(do_updates = do_updates)
@@ -323,7 +323,7 @@ class ONVIFMgr:
   def factoryResetCb(self,do_updates = True):
       self.msg_if.pub_warn("Factory Reseting")
       if self.node_if is not None:
-        self.node_if.factory_reset_params()
+        pass
       if do_updates == True:
         pass
       self.initCb(do_updates = do_updates)
